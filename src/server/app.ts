@@ -1,3 +1,4 @@
+import { registerBranchLogos } from "./branch-logos";
 import { registerProfilePhotos } from "./profile-photos";
 import { registerOrganizationLogo } from "./organization-logo";
 import { registerLedgerExport } from "./ledger-export";
@@ -920,6 +921,7 @@ registerCoursePrerequisites(app);
 registerAttendanceCorrections(app);
 registerCustomFields(app);
 registerOrganizationProfile(app);
+registerBranchLogos(app);
 registerMfa(app);
 registerDocuments(app);
 registerProfilePhotos(app);
