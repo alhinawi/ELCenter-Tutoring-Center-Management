@@ -1,3 +1,99 @@
-import writeXlsxFile from'write-excel-file/node';
-import{test,expect}from'@playwright/test';
-test('academic records and enrollment are usable in English and Arabic',async({page})=>{await page.setViewportSize({width:1440,height:1000});await page.goto('/');await page.getByRole('button',{name:'Explore a private demo'}).click();await expect(page.getByRole('heading',{name:'Headquarters overview'})).toBeVisible();await page.getByRole('button',{name:'Students',exact:true}).click();await expect(page.getByRole('button',{name:/Mariam Adel.*ST-101/})).toBeVisible();await page.screenshot({path:'/downloads/elcenter-phase2-students-desktop.png',fullPage:true,animations:'disabled'});await writeXlsxFile([[{value:'name'},{value:'code'}],[{value:'Excel Imported Learner'},{value:'XLTEST'}]]).toFile('/tmp/elcenter-import.xlsx');await page.getByLabel('Import Excel',{exact:true}).setInputFiles('/tmp/elcenter-import.xlsx');await expect(page.getByRole('button',{name:/Excel Imported Learner/})).toBeVisible();await page.getByRole('button',{name:'Add record',exact:true}).click();await page.getByLabel('Full name / title').fill('Fictional Test Learner');await page.getByLabel('Code',{exact:true}).fill('UI'+Date.now().toString().slice(-8));await page.getByRole('button',{name:'Save changes'}).click();await expect(page.getByRole('button',{name:/Fictional Test Learner/})).toBeVisible();await page.getByRole('button',{name:/Fictional Test Learner/}).click();await expect(page.getByRole('dialog')).toBeVisible();await expect(page.getByRole('heading',{name:'Academic history',exact:true})).toBeVisible();await page.getByRole('button',{name:'Close',exact:true}).click();await page.getByRole('button',{name:'Groups',exact:true}).click();await page.getByRole('button',{name:/English · Evening A.*ENG-EVE/}).click();await expect(page.getByRole('heading',{name:'Enrollment & waiting list'})).toBeVisible();await page.screenshot({path:'/downloads/elcenter-phase2-enrollment-desktop.png',fullPage:true,animations:'disabled'});await page.getByRole('button',{name:'Close',exact:true}).click();await page.setViewportSize({width:390,height:844});await page.getByRole('button',{name:'العربية',exact:true}).click();await expect(page.getByRole('heading',{name:'المجموعات',exact:true})).toBeVisible();await page.screenshot({path:'/downloads/elcenter-phase2-groups-ar-mobile.png',fullPage:true,animations:'disabled'});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();await page.getByRole('button',{name:'فتح القائمة'}).click();await page.getByRole('button',{name:'الطلبة',exact:true}).click();await page.screenshot({path:'/downloads/elcenter-phase2-students-ar-mobile.png',fullPage:true,animations:'disabled'});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy()});
+import writeXlsxFile from "write-excel-file/node";
+import { test, expect } from "@playwright/test";
+test("academic records and enrollment are usable in English and Arabic", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto("/");
+  await page.getByRole("button", { name: "Explore a private demo" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Headquarters overview" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Students", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: /Mariam Adel.*ST-101/ }),
+  ).toBeVisible();
+  await page.screenshot({
+    path: "/downloads/elcenter-phase2-students-desktop.png",
+    fullPage: true,
+    animations: "disabled",
+  });
+  await writeXlsxFile([
+    [{ value: "name" }, { value: "code" }],
+    [{ value: "Excel Imported Learner" }, { value: "XLTEST" }],
+  ]).toFile("/tmp/elcenter-import.xlsx");
+  await page
+    .getByLabel("Import Excel", { exact: true })
+    .setInputFiles("/tmp/elcenter-import.xlsx");
+  await expect(
+    page.getByRole("button", { name: /Excel Imported Learner/ }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Add record", exact: true }).click();
+  await page.getByLabel("Full name / title").fill("Fictional Test Learner");
+  await page
+    .getByLabel("Code", { exact: true })
+    .fill("UI" + Date.now().toString().slice(-8));
+  await page.getByRole("button", { name: "Save changes" }).click();
+  await expect(
+    page.getByRole("button", { name: /Fictional Test Learner/ }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: /Fictional Test Learner/ }).click();
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Academic history", exact: true }),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: "Student ID card", exact: true })
+    .click();
+  await expect(
+    page.getByAltText("Student identification QR code"),
+  ).toBeVisible();
+  await page.screenshot({
+    path: "/downloads/elcenter-phase3-student-id.png",
+    fullPage: true,
+    animations: "disabled",
+  });
+  await page.getByRole("button", { name: "Close", exact: true }).last().click();
+
+  await page.getByRole("button", { name: "Close", exact: true }).click();
+  await page.getByRole("button", { name: "Groups", exact: true }).click();
+  await page
+    .getByRole("button", { name: /English · Evening A.*ENG-EVE/ })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "Enrollment & waiting list" }),
+  ).toBeVisible();
+  await page.screenshot({
+    path: "/downloads/elcenter-phase2-enrollment-desktop.png",
+    fullPage: true,
+    animations: "disabled",
+  });
+  await page.getByRole("button", { name: "Close", exact: true }).click();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByRole("button", { name: "العربية", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "المجموعات", exact: true }),
+  ).toBeVisible();
+  await page.screenshot({
+    path: "/downloads/elcenter-phase2-groups-ar-mobile.png",
+    fullPage: true,
+    animations: "disabled",
+  });
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBeTruthy();
+  await page.getByRole("button", { name: "فتح القائمة" }).click();
+  await page.getByRole("button", { name: "الطلبة", exact: true }).click();
+  await page.screenshot({
+    path: "/downloads/elcenter-phase2-students-ar-mobile.png",
+    fullPage: true,
+    animations: "disabled",
+  });
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBeTruthy();
+});
