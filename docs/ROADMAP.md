@@ -2,15 +2,15 @@
 
 Each phase is a real pull request with tested server persistence and usable screens. A phase is not complete merely because its navigation label exists.
 
-| Phase | Scope                                                                           | State         |
-| ----- | ------------------------------------------------------------------------------- | ------------- |
-| 1     | Foundation, authentication, organization, branches, users, RBAC, dashboard      | Merged, PR #1 |
-| 2     | Students, guardians, teachers, courses, groups, classrooms, safe demo toggle    | Merged, PR #2 |
-| 3     | Timetables, sessions, attendance, exams, performance                            | Merged, PR #3 |
-| 4     | Invoices, payments, expenses, accounting, payroll                               | Merged, PR #4 |
-| 5     | HR, CRM, notifications, marketing, reception                                    | Merged, PR #5 |
-| 6     | Student, guardian and teacher portals, LMS                                      | Merged, PR #6 |
-| 7     | Inventory, library, support, documents, reports                                 | Merged, PR #7 |
+| Phase | Scope                                                                           | State                    |
+| ----- | ------------------------------------------------------------------------------- | ------------------------ |
+| 1     | Foundation, authentication, organization, branches, users, RBAC, dashboard      | Merged, PR #1            |
+| 2     | Students, guardians, teachers, courses, groups, classrooms, safe demo toggle    | Merged, PR #2            |
+| 3     | Timetables, sessions, attendance, exams, performance                            | Merged, PR #3            |
+| 4     | Invoices, payments, expenses, accounting, payroll                               | Merged, PR #4            |
+| 5     | HR, CRM, notifications, marketing, reception                                    | Merged, PR #5            |
+| 6     | Student, guardian and teacher portals, LMS                                      | Merged, PR #6            |
+| 7     | Inventory, library, support, documents, reports                                 | Merged, PR #7            |
 | 8     | Security hardening, automations, integrations, performance, testing, deployment | Core merged, detail open |
 
 The original request includes extensive details within each phase. The implementation should preserve that scope rather than treating this table as permission to omit it. External payment processing, outbound notifications, Google authentication, object storage and scheduled infrastructure require separately configured provider capabilities. Free operation and no purchases remain binding constraints. Provider-dependent features must never claim success without a provider delivery result.
@@ -23,7 +23,7 @@ The core workflows above are not a claim that every detailed requirement is alre
 
 Phase 4 adds persisted invoice issue, partial receipt/refund, draft installment plans, approved expenses, supplier payables and partial settlements, balanced immutable double-entry journals with reversals, branch scopes, closed-period guards, cutoff-aware balance sheets, income/trial balance and cash/bank movement reports, cleared-line reconciliation, and six teacher compensation formulas with immutable calculation snapshots and separate preparer/approver/payer. Print views provide invoices/receipts and teacher payslips. These are operational records, not a payment gateway or a claim of statutory accounting compliance.
 
-Remaining detailed finance scope before final sign-off: advances/loan recovery, configurable revenue classifications and recurring subscriptions, richer cost-center dimensions beyond branches, independent accountant review, full ledger cursor pagination and statement export. Cash-flow output is a cash/bank movement breakdown by source, not a statutory operating/investing/financing cash-flow statement. Reconciliation matches selected statement-cleared ledger lines once; it does not connect to a bank or import bank statements. Invoice and receipt print views are not electronic tax invoices.
+Remaining detailed finance scope before final sign-off: advances/loan recovery, configurable revenue classifications and recurring subscriptions, richer cost-center dimensions beyond branches, independent accountant review, full-ledger statement export. Cash-flow output is a cash/bank movement breakdown by source, not a statutory operating/investing/financing cash-flow statement. Reconciliation matches selected statement-cleared ledger lines once; it does not connect to a bank or import bank statements. Invoice and receipt print views are not electronic tax invoices.
 
 ## People and admissions delivery notes
 
@@ -104,3 +104,7 @@ Migration 0023 rebuilds the constrained custom-field definition/value pair, pres
 ## Upcoming exam reminder increment
 
 A default-off family exam rule supports a 1–14 organization-local calendar-day notice window. Only published upcoming exams in active real groups, for current active enrolled real students and their explicitly linked active portal accounts, qualify. Membership role, branch, family relationship, profile state, preference, rule and exam schedule are checked again in the notification transaction. Notices identify the correct child and organization-local date/time with its timezone. Dedupe is per exam/student/recipient/scheduled timestamp; changed dates get a fresh notice. Existing notices remain history, not live schedule truth. This is not cancellation/change delivery, external messaging or a guarantee of timely delivery when the optional Worker is undeployed or its round-robin cadence exceeds the window. The cap is 100 eligible recipient/student/exam records per run, excluding previously sent keys before limiting.
+
+## Complete-journal ledger pagination increment
+
+The ledger now uses descending date/created-time/id keyset cursors with 1–25 complete journals per page. All journal lines stay together; the old 2,000-line silent truncation is removed. Cursors are bound to current organization, branch scope and date range, and current permissions still apply on every request. Pages are live reads, not a frozen accounting snapshot: newly posted or backdated entries may require refresh, and previous-page navigation repeats the earlier keyset query. The visible-page CSV includes all lines on that page, has a UTF-8 BOM and neutralizes spreadsheet formula prefixes. Its button requires finance export permission, but any finance viewer can already read those records. This browser download does not yet create a server export audit event. Full-ledger statement export with a stable snapshot, account running balances and larger export jobs remains open. Migration 0025 adds only two journal cursor indexes; no production migration is included here.

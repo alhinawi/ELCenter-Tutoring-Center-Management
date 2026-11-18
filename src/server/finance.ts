@@ -1,4 +1,5 @@
 import type { Hono } from "hono";
+import { readLedger } from "./ledger";
 import { z } from "zod";
 import { Temporal } from "@js-temporal/polyfill";
 import { uid, type Statement } from "./db";
@@ -753,21 +754,7 @@ export function registerFinance(app: Hono<any>) {
     ]);
     return c.json({ ok: true });
   });
-  app.get("/api/finance/ledger", async (c: AppContext) => {
-    permit(c, "finance");
-    const a = c.get("actor"),
-      from = c.req.query("from") ?? "2020-01-01",
-      to = c.req.query("to") ?? "2100-12-31";
-    date.parse(from);
-    date.parse(to);
-    assert(from <= to, 400, "Invalid date range");
-    const rows = await c.env.DB.prepare(
-      "SELECT j.id,j.date,j.reference,j.memo,j.source_type,j.reverse_of,j.branch_id,l.account_id,ac.code,ac.name account_name,l.debit,l.credit FROM el_journals j JOIN el_journal_lines l ON l.journal_id=j.id JOIN el_accounts ac ON ac.id=l.account_id WHERE j.org_id=? AND j.status='posted' AND (? IS NULL OR j.branch_id=?) AND j.date>=? AND j.date<=? ORDER BY j.date DESC,j.created_at DESC LIMIT 2000",
-    )
-      .bind(a.org_id, a.branch_id, a.branch_id, from, to)
-      .all();
-    return c.json({ data: rows.results, from, to });
-  });
+  app.get("/api/finance/ledger", readLedger);
   app.post("/api/finance/journals", async (c: AppContext) => {
     permit(c, "finance", "approve");
     const d = z
