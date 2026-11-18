@@ -338,7 +338,7 @@ export function SystemControls({
               <div className="space-y-5">
                 <p className="text-sm leading-7 text-slate-500">
                   {L(
-                    "Only in-app reminders: expiring documents to their uploader, due invoices/library returns to linked families, assigned lead follow-ups, contract expiry to HR, low stock to inventory staff, upcoming exams to linked families, and saved report digests. No email, SMS or WhatsApp is sent. Up to 100 records per kind each run. A separately deployed scheduler is required for automatic runs.",
+                    "Only in-app reminders: expiring documents to their uploader, due invoices/library returns to linked families, assigned lead follow-ups, contract expiry to HR, low stock to inventory staff, upcoming exams and low-attendance follow-ups to linked families, and saved report digests. No email, SMS or WhatsApp is sent. Up to 100 records per kind each run. A separately deployed scheduler is required for automatic runs.",
                     "تذكيرات داخل التطبيق بس: انتهاء المستندات للي رفعها، الفواتير والكتب المستحقة للأسر المرتبطة، متابعة العملاء للمسؤول، انتهاء العقود للموارد البشرية، المخزون المنخفض للمخازن، الامتحانات القريبة للأسر المرتبطة، وملخصات التقارير المحفوظة. مفيش إرسال بريد أو SMS أو واتساب. لحد 100 سجل من كل نوع في التشغيل. التشغيل التلقائي محتاج نشر خدمة الجدولة بشكل منفصل.",
                   )}
                 </p>
@@ -376,6 +376,14 @@ export function SystemControls({
                         contract_days: Number(fd.get("contract_days")),
                         upcoming_exams: fd.has("upcoming_exams"),
                         exam_days: Number(fd.get("exam_days")),
+                        low_attendance: fd.has("low_attendance"),
+                        attendance_days: Number(fd.get("attendance_days")),
+                        attendance_threshold: Number(
+                          fd.get("attendance_threshold"),
+                        ),
+                        attendance_minimum: Number(
+                          fd.get("attendance_minimum"),
+                        ),
                       },
                       "PUT",
                     );
@@ -402,6 +410,13 @@ export function SystemControls({
                         L(
                           "Upcoming exams for linked families",
                           "الامتحانات القريبة للأسر المرتبطة",
+                        ),
+                      ],
+                      [
+                        "low_attendance",
+                        L(
+                          "Low attendance for linked families",
+                          "الحضور المنخفض للأسر المرتبطة",
                         ),
                       ],
                       [
@@ -458,6 +473,60 @@ export function SystemControls({
                       defaultValue={jobs.rules.exam_days}
                     />
                   </Field>
+                  <Field
+                    label={L(
+                      "Attendance lookback days (7–90)",
+                      "فترة مراجعة الحضور بالأيام (7–90)",
+                    )}
+                  >
+                    <Input
+                      name="attendance_days"
+                      type="number"
+                      required
+                      min={7}
+                      max={90}
+                      step={1}
+                      defaultValue={jobs.rules.attendance_days}
+                    />
+                  </Field>
+                  <Field
+                    label={L(
+                      "Attendance threshold percent (1–100)",
+                      "نسبة الحضور المطلوبة (1–100)",
+                    )}
+                  >
+                    <Input
+                      name="attendance_threshold"
+                      type="number"
+                      required
+                      min={1}
+                      max={100}
+                      step={1}
+                      defaultValue={jobs.rules.attendance_threshold}
+                    />
+                  </Field>
+                  <Field
+                    label={L(
+                      "Minimum recorded sessions (1–50)",
+                      "أقل عدد حصص مسجلة (1–50)",
+                    )}
+                  >
+                    <Input
+                      name="attendance_minimum"
+                      type="number"
+                      required
+                      min={1}
+                      max={50}
+                      step={1}
+                      defaultValue={jobs.rules.attendance_minimum}
+                    />
+                  </Field>
+                  <p className="text-xs leading-6 text-slate-500">
+                    {L(
+                      "Attendance notices default off. Below-threshold recorded attendance across current active groups only, once per student and recipient each month. Present, late and left early count as attended; excused, unrecorded, future and cancelled sessions are excluded. No automatic penalties or external delivery.",
+                      "تنبيه الحضور مقفول افتراضياً. للحضور المسجل الأقل من النسبة في المجموعات النشطة الحالية بس، مرة لكل طالب ومستلم في الشهر. حاضر ومتأخر وانصرف بدري محسوبين حضور؛ المعذور وغير المسجل والحصص القادمة والملغية مش محسوبة. مفيش جزاءات تلقائية أو إرسال خارجي.",
+                    )}
+                  </p>
                   <p className="text-xs leading-6 text-slate-500">
                     {L(
                       "Exam notices go only to currently enrolled linked students and guardians, once per exam, student, recipient and scheduled time. Published upcoming exams only. A reschedule gets a fresh notice, not a cancellation alert.",

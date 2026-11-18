@@ -1,3 +1,4 @@
+import { lowAttendanceReminders } from "./attendance-reminders";
 import type { Hono } from "hono";
 import { upcomingExamReminders } from "./exam-reminders";
 import { getCookie } from "hono/cookie";
@@ -101,7 +102,7 @@ export async function runAutomation(
     });
   const rules = await db
     .prepare(
-      "SELECT lead_followups,contract_expiry,low_stock,contract_days,upcoming_exams,exam_days FROM el_automation_settings WHERE org_id=?",
+      "SELECT lead_followups,contract_expiry,low_stock,contract_days,upcoming_exams,exam_days,low_attendance,attendance_days,attendance_threshold,attendance_minimum FROM el_automation_settings WHERE org_id=?",
     )
     .bind(org)
     .first<{
@@ -202,6 +203,7 @@ export async function runAutomation(
       },
     });
   candidates.push(...(await upcomingExamReminders(db, org, time, zone)));
+  candidates.push(...(await lowAttendanceReminders(db, org, time, zone)));
   const schedules = (
     await db
       .prepare(
@@ -471,7 +473,7 @@ export function registerSystem(app: Hono<any>) {
           .first<{ enabled: number }>()
       )?.enabled,
       rules: (await c.env.DB.prepare(
-        "SELECT lead_followups,contract_expiry,low_stock,contract_days,upcoming_exams,exam_days FROM el_automation_settings WHERE org_id=?",
+        "SELECT lead_followups,contract_expiry,low_stock,contract_days,upcoming_exams,exam_days,low_attendance,attendance_days,attendance_threshold,attendance_minimum FROM el_automation_settings WHERE org_id=?",
       )
         .bind(a.org_id)
         .first()) ?? {
@@ -481,6 +483,10 @@ export function registerSystem(app: Hono<any>) {
         contract_days: 30,
         upcoming_exams: 0,
         exam_days: 7,
+        low_attendance: 0,
+        attendance_days: 30,
+        attendance_threshold: 75,
+        attendance_minimum: 5,
       },
       scheduler_status: "Check deployment status with your operator",
     });
@@ -498,6 +504,10 @@ export function registerSystem(app: Hono<any>) {
         contract_days: z.number().int().min(1).max(90).optional(),
         upcoming_exams: z.boolean().optional(),
         exam_days: z.number().int().min(1).max(14).optional(),
+        low_attendance: z.boolean().optional(),
+        attendance_days: z.number().int().min(7).max(90).optional(),
+        attendance_threshold: z.number().int().min(1).max(100).optional(),
+        attendance_minimum: z.number().int().min(1).max(50).optional(),
       })
       .parse(await c.req.json());
     const flag = (b: boolean | undefined) =>
@@ -520,6 +530,15 @@ export function registerSystem(app: Hono<any>) {
         d.contract_days ?? null,
         flag(d.upcoming_exams),
         d.exam_days ?? null,
+      ),
+      c.env.DB.prepare(
+        "UPDATE el_automation_settings SET low_attendance=COALESCE(?,low_attendance),attendance_days=COALESCE(?,attendance_days),attendance_threshold=COALESCE(?,attendance_threshold),attendance_minimum=COALESCE(?,attendance_minimum) WHERE org_id=?",
+      ).bind(
+        flag(d.low_attendance),
+        d.attendance_days ?? null,
+        d.attendance_threshold ?? null,
+        d.attendance_minimum ?? null,
+        a.org_id,
       ),
       audit(c, "automation", a.org_id, "settings", null, d),
     ]);

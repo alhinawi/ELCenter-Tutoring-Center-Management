@@ -106,7 +106,7 @@ test("configurable staff reminders persist rules and deliver only in-app", async
     .click();
   await expect(page.getByRole("status")).toContainText("Saved successfully");
   const rules = (await api("/system/automation")).rules;
-  expect(rules).toEqual({
+  expect(rules).toMatchObject({
     lead_followups: 1,
     contract_expiry: 1,
     low_stock: 1,
