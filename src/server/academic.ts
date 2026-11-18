@@ -235,6 +235,21 @@ export function registerAcademic(app: Hono<any>) {
       return c.json({ enabled: true });
     }
     const tables = [
+      "expense_payments",
+      "reconciliation_lines",
+      "reconciliations",
+      "installments",
+      "invoice_teacher_shares",
+      "payments",
+      "invoice_items",
+      "invoices",
+      "expenses",
+      "payroll",
+      "compensation",
+      "journal_lines",
+      "journals",
+      "financial_periods",
+      "accounts",
       "exam_answers",
       "exam_results",
       "questions",

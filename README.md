@@ -2,7 +2,7 @@
 
 A bilingual, multi-branch education operations platform. Next.js and Tailwind on the frontend, Hono Pages Functions and a relational Cloudflare D1 database on the server.
 
-## Working release: Foundation and academic operations
+## Working release: Foundation, academics and finance
 
 - Organization creation and real email/password authentication, salted PBKDF2 hashes, hashed sessions, HttpOnly cookies and CSRF checks.
 - 18 seeded roles, configurable custom roles and granular server-checked permissions. Branch-scoped memberships and organization isolation.
@@ -20,6 +20,11 @@ A bilingual, multi-branch education operations platform. Next.js and Tailwind on
 - Timezone-aware month/week/day calendars, drag/reschedule with database conflict guards, weekly recurrence, teacher availability and holidays.
 - Persisted attendance, roster eligibility, manual/student-ID entry, QR cards and camera scanning where the browser supports BarcodeDetector. Physical camera operation still needs a device check.
 - Exam authoring, locked publication, six question types, bounded grades, server automatic grading, rankings and student performance from stored results.
+
+- Issued invoices with locked line items and installment plans; partial receipts, refunds, printable invoice/receipt history and explicit teacher revenue allocations.
+- Independent expense approval, supplier payables and partial settlements, immutable balanced double-entry ledger with auditable manual reversals and period closure.
+- Cutoff-aware balance sheets and receivables, period income/trial balance, cash/bank movement and once-only cleared-line statement reconciliation.
+- Six teacher compensation formulas, persisted calculation snapshots, bonuses/deductions, independent approval and third-person payment recording, printable payslips. No real funds move.
 
 This is a phased implementation, **not yet a complete enterprise ERP**. See [the delivery plan](docs/ROADMAP.md) for the remaining phases. Do not enter real student or financial data until the remaining security and recovery work is complete.
 
