@@ -663,6 +663,20 @@ app.post("/api/users", async (c) => {
     403,
     "Owner permission required",
   );
+  if (!["business_owner", "super_admin"].includes(a.system_key)) {
+    const desired = (
+      await c.env.DB.prepare(
+        "SELECT resource,action FROM el_role_permissions WHERE role_id=?",
+      )
+        .bind(d.role_id)
+        .all<{ resource: string; action: string }>()
+    ).results;
+    assert(
+      desired.every((p) => a.permissions.includes(`${p.resource}:${p.action}`)),
+      403,
+      "Cannot assign a role with permissions you do not have",
+    );
+  }
   if (d.branch_id)
     assert(
       await c.env.DB.prepare(
