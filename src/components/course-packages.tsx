@@ -25,10 +25,16 @@ export function CoursePackages({
     [error, setError] = useState(""),
     [notice, setNotice] = useState(""),
     [busy, setBusy] = useState(false),
-    [chosen, setChosen] = useState<Row | null>(null);
+    [chosen, setChosen] = useState<Row | null>(null),
+    [clock, setClock] = useState<Row | null>(null);
   async function load() {
     try {
-      setRows((await api("/course-packages")).data);
+      const response = await api("/course-packages");
+      setRows(response.data);
+      setClock({
+        day: response.enrollment_day,
+        zone: response.enrollment_timezone,
+      });
     } catch (e) {
       setError(String(e));
     }
@@ -80,6 +86,8 @@ export function CoursePackages({
                     name: d.get("name"),
                     price: Number(d.get("price")),
                     course_ids: d.getAll("course_ids"),
+                    enrollment_opens_on: d.get("enrollment_opens_on") || null,
+                    enrollment_closes_on: d.get("enrollment_closes_on") || null,
                   });
                   form.reset();
                   await load();
@@ -117,6 +125,28 @@ export function CoursePackages({
                   required
                 />
               </Field>
+              <Field
+                label={L(
+                  "Package enrollment opens on",
+                  "فتح التسجيل في الباقة",
+                )}
+              >
+                <Input type="date" name="enrollment_opens_on" />
+              </Field>
+              <Field
+                label={L(
+                  "Package enrollment closes on",
+                  "قفل التسجيل في الباقة",
+                )}
+              >
+                <Input type="date" name="enrollment_closes_on" />
+              </Field>
+              <p className="text-xs leading-6 text-slate-500 sm:col-span-2">
+                {L(
+                  "Optional inclusive dates for new package enrollment only. Server organization-local day applies, not the invoice date. Blank means no boundary. Dates are immutable; existing orders, normal course registration and class schedules do not change.",
+                  "تواريخ اختيارية شاملة لتسجيل الباقة الجديدة بس. اليوم المحلي للمؤسسة من السيرفر هو الأساس، مش تاريخ الفاتورة. الفاضي من غير حد. التواريخ ثابتة؛ الطلبات القديمة وتسجيل الكورسات العادي ومواعيد الحصص مش بتتغير.",
+                )}
+              </p>
               <fieldset className="sm:col-span-2">
                 <legend className="mb-3 text-sm font-semibold">
                   {L("Package courses, 2–10", "كورسات الباقة، 2–10")}
@@ -141,6 +171,21 @@ export function CoursePackages({
                 </Button>
               </div>
             </form>
+          )}
+          {clock && (
+            <p className="mb-4 text-xs text-slate-500">
+              {L("Server enrollment day", "يوم التسجيل على السيرفر")}:{" "}
+              <bdi dir="ltr">
+                {clock.day} · {clock.zone}
+              </bdi>{" "}
+              <button
+                className="text-blue-700"
+                disabled={busy}
+                onClick={() => void load()}
+              >
+                {L("Refresh package availability", "تحديث إتاحة الباقات")}
+              </button>
+            </p>
           )}
           <div className="space-y-4">
             {rows.map((p) => (
@@ -181,6 +226,20 @@ export function CoursePackages({
                     </button>
                   )}
                 </div>
+                <p className="my-3 text-xs text-slate-500">
+                  {L("Enrollment window", "فترة التسجيل")}:{" "}
+                  <bdi dir="ltr">
+                    {p.enrollment_opens_on ??
+                      L("No opening limit", "من غير حد بداية")}{" "}
+                    →{" "}
+                    {p.enrollment_closes_on ??
+                      L("No closing limit", "من غير حد نهاية")}
+                  </bdi>{" "}
+                  ·{" "}
+                  {p.enrollment_window_open
+                    ? L("Window open", "الفترة مفتوحة")
+                    : L("Window not open", "الفترة مش مفتوحة")}
+                </p>
                 <ul className="my-3 space-y-1 text-sm">
                   {p.courses.map((c: Row) => (
                     <li key={c.course_id}>{c.name}</li>
@@ -188,7 +247,7 @@ export function CoursePackages({
                 </ul>
                 {enroll && p.status === "active" && (
                   <Button
-                    disabled={busy}
+                    disabled={busy || !p.enrollment_window_open}
                     onClick={() => {
                       setChosen(p);
                       setNotice("");

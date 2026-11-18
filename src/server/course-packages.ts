@@ -1,3 +1,4 @@
+import { Temporal } from "@js-temporal/polyfill";
 import type { Hono } from "hono";
 import { z } from "zod";
 import { audit, permit, scope, type AppContext } from "./app";
@@ -12,6 +13,12 @@ const day = z
       !Number.isNaN(Date.parse(s)) &&
       new Date(s + "T00:00:00Z").toISOString().slice(0, 10) === s,
   );
+export function packageEnrollmentDay(timezone: string, epochMs = Date.now()) {
+  return Temporal.Instant.fromEpochMilliseconds(epochMs)
+    .toZonedDateTimeISO(timezone)
+    .toPlainDate()
+    .toString();
+}
 export function registerCoursePackages(app: Hono<any>) {
   app.get("/api/course-packages", async (c: AppContext) => {
     permit(c, "courses");
@@ -31,9 +38,20 @@ export function registerCoursePackages(app: Hono<any>) {
         .all<Record<string, any>>()
     ).results;
     for (const item of items) scope(c, item.branch_id);
+    const zone = (await c.env.DB.prepare(
+      "SELECT timezone FROM el_organizations WHERE id=?",
+    )
+      .bind(a.org_id)
+      .first<{ timezone: string }>())!.timezone;
+    const localDay = packageEnrollmentDay(zone);
     return c.json({
+      enrollment_day: localDay,
+      enrollment_timezone: zone,
       data: rows.map((r) => ({
         ...r,
+        enrollment_window_open:
+          (!r.enrollment_opens_on || localDay >= r.enrollment_opens_on) &&
+          (!r.enrollment_closes_on || localDay <= r.enrollment_closes_on),
         courses: items.filter((i) => i.package_id === r.id),
       })),
     });
@@ -47,7 +65,16 @@ export function registerCoursePackages(app: Hono<any>) {
           name: z.string().trim().min(1).max(160),
           price: z.number().int().min(1).max(1000000000),
           course_ids: z.array(z.uuid()).min(2).max(10),
+          enrollment_opens_on: day.nullable().optional().default(null),
+          enrollment_closes_on: day.nullable().optional().default(null),
         })
+        .refine(
+          (d) =>
+            !d.enrollment_opens_on ||
+            !d.enrollment_closes_on ||
+            d.enrollment_closes_on >= d.enrollment_opens_on,
+          "Invalid package enrollment window",
+        )
         .parse(await c.req.json());
     scope(c, d.branch_id);
     assert(
@@ -79,7 +106,7 @@ export function registerCoursePackages(app: Hono<any>) {
       id = uid();
     await c.env.DB.batch([
       c.env.DB.prepare(
-        "INSERT INTO el_course_packages(id,org_id,branch_id,name,price,currency,created_by,created_at) VALUES(?,?,?,?,?,?,?,?)",
+        "INSERT INTO el_course_packages(id,org_id,branch_id,name,price,currency,created_by,created_at,enrollment_opens_on,enrollment_closes_on) VALUES(?,?,?,?,?,?,?,?,?,?)",
       ).bind(
         id,
         a.org_id,
@@ -89,6 +116,8 @@ export function registerCoursePackages(app: Hono<any>) {
         currency,
         a.user_id,
         now(),
+        d.enrollment_opens_on,
+        d.enrollment_closes_on,
       ),
       ...d.course_ids.map((course) =>
         c.env.DB.prepare(
@@ -142,6 +171,18 @@ export function registerCoursePackages(app: Hono<any>) {
         .first<Record<string, any>>();
     assert(p, 404, "Active package not found");
     scope(c, p.branch_id);
+    const zone = (await c.env.DB.prepare(
+        "SELECT timezone FROM el_organizations WHERE id=?",
+      )
+        .bind(a.org_id)
+        .first<{ timezone: string }>())!.timezone,
+      localDay = packageEnrollmentDay(zone);
+    assert(
+      (!p.enrollment_opens_on || localDay >= p.enrollment_opens_on) &&
+        (!p.enrollment_closes_on || localDay <= p.enrollment_closes_on),
+      409,
+      "Package enrollment window is not open on the organization-local day",
+    );
     const student = await record(c, "students", d.student_id);
     assert(
       student.branch_id === p.branch_id &&
@@ -189,6 +230,10 @@ export function registerCoursePackages(app: Hono<any>) {
       order = uid(),
       summary = {
         package_id: p.id,
+        enrolled_on: localDay,
+        enrollment_timezone: zone,
+        enrollment_opens_on: p.enrollment_opens_on,
+        enrollment_closes_on: p.enrollment_closes_on,
         name: p.name,
         price: p.price,
         currency: p.currency,

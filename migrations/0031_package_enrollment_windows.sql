@@ -1,0 +1,9 @@
+ALTER TABLE el_course_packages ADD COLUMN enrollment_opens_on TEXT;
+ALTER TABLE el_course_packages ADD COLUMN enrollment_closes_on TEXT;
+CREATE TRIGGER el_course_package_window_dates BEFORE INSERT ON el_course_packages BEGIN
+ SELECT CASE WHEN (NEW.enrollment_opens_on IS NOT NULL AND (length(NEW.enrollment_opens_on)<>10 OR date(NEW.enrollment_opens_on,'+0 days') IS NULL OR date(NEW.enrollment_opens_on,'+0 days')<>NEW.enrollment_opens_on)) OR (NEW.enrollment_closes_on IS NOT NULL AND (length(NEW.enrollment_closes_on)<>10 OR date(NEW.enrollment_closes_on,'+0 days') IS NULL OR date(NEW.enrollment_closes_on,'+0 days')<>NEW.enrollment_closes_on)) OR NEW.enrollment_closes_on<NEW.enrollment_opens_on THEN RAISE(ABORT,'Course package enrollment window is invalid') END;
+END;
+CREATE TRIGGER el_course_package_window_lock BEFORE UPDATE ON el_course_packages WHEN NEW.enrollment_opens_on IS NOT OLD.enrollment_opens_on OR NEW.enrollment_closes_on IS NOT OLD.enrollment_closes_on BEGIN SELECT RAISE(ABORT,'Course package enrollment window is immutable'); END;
+CREATE TRIGGER el_course_package_window_order BEFORE INSERT ON el_course_package_orders BEGIN
+ SELECT CASE WHEN NOT EXISTS(SELECT 1 FROM el_course_packages p JOIN el_organizations o ON o.id=p.org_id WHERE p.id=NEW.package_id AND p.org_id=NEW.org_id AND json_extract(NEW.summary_json,'$.enrollment_timezone')=o.timezone AND json_extract(NEW.summary_json,'$.enrolled_on') IS NOT NULL AND date(json_extract(NEW.summary_json,'$.enrolled_on'),'+0 days')=json_extract(NEW.summary_json,'$.enrolled_on') AND (p.enrollment_opens_on IS NULL OR json_extract(NEW.summary_json,'$.enrolled_on')>=p.enrollment_opens_on) AND (p.enrollment_closes_on IS NULL OR json_extract(NEW.summary_json,'$.enrolled_on')<=p.enrollment_closes_on)) THEN RAISE(ABORT,'Course package enrollment window closed or timezone changed') END;
+END;
