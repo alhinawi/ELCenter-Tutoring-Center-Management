@@ -1,7 +1,7 @@
 import type { Hono } from "hono";
 import { z } from "zod";
 import { assert } from "./security";
-import { uid, now } from "./db";
+import { uid, now, searchPattern } from "./db";
 import { audit, permit, scope, type AppContext } from "./app";
 import { record } from "./academic";
 const text = z.string().trim().max(2000).default("");
@@ -85,13 +85,54 @@ export function gradeAnswer(type: string, answer: string, correct: string) {
 export function registerAssessment(app: Hono<any>) {
   app.get("/api/exams", async (c: AppContext) => {
     permit(c, "exams");
-    const a = c.get("actor");
-    const rows = await c.env.DB.prepare(
-      "SELECT e.*,g.name group_name FROM el_exams e JOIN el_groups g ON g.id=e.group_id WHERE e.org_id=? AND (? IS NULL OR e.branch_id=?) ORDER BY e.scheduled_at DESC LIMIT 300",
+    const a = c.get("actor"),
+      page = z.coerce
+        .number()
+        .int()
+        .min(1)
+        .max(10000)
+        .parse(c.req.query("page") ?? 1),
+      q = z
+        .string()
+        .max(100)
+        .parse(c.req.query("q") ?? ""),
+      status = z
+        .enum(["", "draft", "published", "closed"])
+        .parse(c.req.query("status") ?? ""),
+      group = z
+        .union([z.uuid(), z.literal("")])
+        .parse(c.req.query("group") ?? "");
+    if (group) await record(c, "groups", group);
+    const where =
+        "e.org_id=? AND (? IS NULL OR e.branch_id=?) AND e.name LIKE ? AND (?='' OR e.status=?) AND (?='' OR e.group_id=?)",
+      args = [
+        a.org_id,
+        a.branch_id,
+        a.branch_id,
+        searchPattern(q),
+        status,
+        status,
+        group,
+        group,
+      ];
+    const count = await c.env.DB.prepare(
+      "SELECT count(*) total FROM el_exams e WHERE " + where,
     )
-      .bind(a.org_id, a.branch_id, a.branch_id)
+      .bind(...args)
+      .first<{ total: number }>();
+    const rows = await c.env.DB.prepare(
+      "SELECT e.*,g.name group_name FROM el_exams e JOIN el_groups g ON g.id=e.group_id AND g.org_id=e.org_id WHERE " +
+        where +
+        " ORDER BY e.scheduled_at DESC,e.id DESC LIMIT 20 OFFSET ?",
+    )
+      .bind(...args, (page - 1) * 20)
       .all();
-    return c.json({ data: rows.results });
+    return c.json({
+      data: rows.results,
+      total: count?.total ?? 0,
+      page,
+      page_size: 20,
+    });
   });
   app.post("/api/exams", createExam);
   app.put("/api/exams/:id", updateExam);
