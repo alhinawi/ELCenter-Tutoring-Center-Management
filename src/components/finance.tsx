@@ -1,4 +1,5 @@
 "use client";
+import { InvoiceNumberSettings } from "./invoice-numbering";
 import {
   InvoicePrintHeader,
   InvoicePrintFooter,
@@ -463,6 +464,11 @@ export default function Finance({
         </>
       ) : section === "settings" ? (
         <div className="grid gap-5 lg:grid-cols-2">
+          <InvoiceNumberSettings
+            api={api}
+            ar={ar}
+            editable={allowed("finance", "manage") && headquarters}
+          />
           <InvoicePrintSettings
             api={api}
             ar={ar}
@@ -924,7 +930,14 @@ export default function Finance({
                   </Select>
                 </Field>
                 <Field label={L("Invoice number", "رقم الفاتورة")}>
-                  <Input name="number" required maxLength={40} />
+                  <Input
+                    name="number"
+                    maxLength={40}
+                    placeholder={L(
+                      "Blank for configured automatic number",
+                      "سيبه فاضي للترقيم التلقائي لو متفعل",
+                    )}
+                  />
                 </Field>
                 <Field label={L("Invoice date", "تاريخ الفاتورة")}>
                   <Input
