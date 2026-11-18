@@ -62,3 +62,7 @@ Not finished: email recovery/verification, Google sign-in, external providers, p
 ## Record customization increment
 
 Typed custom field definitions and values are attached to students, guardians, teachers, courses, groups and classrooms. Headquarters managers create/archive/restore definitions; record view/edit and branch permissions govern values. Types/options/keys are immutable, archived values remain read-only, and writes enter the audit log. Up to 200 definitions including archived fields. A required custom field is enforced when saving that supplemental form, not during the core registration workflow. Employee custom fields, tax configuration and editable invoice/receipt templates remain open.
+
+## Organization profile increment
+
+A headquarters-edited profile stores display name, tagline, contact email/phone, address and an HTTPS website with audit history. The display name reaches the authenticated workspace header without replacing the registered organization name. Correspondence language and financial-year start month are reference settings only. Browser locale still controls the UI default, and financial periods are not silently reopened/reclassified. Logo upload, branding themes, tax rules and editable print layouts remain open.

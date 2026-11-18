@@ -1,3 +1,4 @@
+import { registerOrganizationProfile } from "./organization-profile";
 import { registerCustomFields } from "./custom-fields";
 import { registerMfa, verifyMfa } from "./mfa";
 import { registerSystem } from "./system";
@@ -445,7 +446,19 @@ app.get("/api/me", async (c) => {
   )
     .bind(a.org_id)
     .first();
-  return c.json({ user: a, organization: org });
+  const profile = await c.env.DB.prepare(
+    "SELECT display_name,tagline FROM el_organization_profiles WHERE org_id=?",
+  )
+    .bind(a.org_id)
+    .first<{ display_name: string; tagline: string }>();
+  return c.json({
+    user: a,
+    organization: {
+      ...(org as Record<string, unknown>),
+      display_name: profile?.display_name ?? "",
+      tagline: profile?.tagline ?? "",
+    },
+  });
 });
 app.post("/api/auth/logout", async (c) => {
   const t = getCookie(c, "elcenter_session")!;
@@ -854,6 +867,7 @@ registerLibrary(app);
 registerReports(app);
 registerSystem(app);
 registerCustomFields(app);
+registerOrganizationProfile(app);
 registerMfa(app);
 registerDocuments(app);
 registerLms(app);
