@@ -1,4 +1,5 @@
 "use client";
+import { EmployeeLoans } from "./employee-loans";
 import { useModalFocus } from "./modal-focus";
 import { CompleteLedgerExport } from "./ledger-export";
 import { AccountStatementExport } from "./account-statement";
@@ -36,6 +37,7 @@ import type { T } from "./i18n";
 type Row = Record<string, any>;
 type Api = (p: string, m?: string, b?: unknown) => Promise<any>;
 type Section =
+  | "loans"
   | "invoices"
   | "expenses"
   | "ledger"
@@ -135,6 +137,7 @@ export default function Finance({
     currency;
   const reload = () => setVersion((v) => v + 1);
   const labels: Record<Section, string> = {
+    loans: L("Employee loans", "قروض الموظفين"),
     invoices: L("Invoices", "الفواتير"),
     expenses: L("Expenses", "المصروفات"),
     ledger: L("Ledger", "دفتر الأستاذ"),
@@ -155,7 +158,7 @@ export default function Finance({
   useEffect(() => {
     setError("");
     setData(null);
-    if (section === "reconciliation") return;
+    if (section === "reconciliation" || section === "loans") return;
     const path =
       section === "invoices"
         ? `/invoices?page=${page}`
@@ -310,7 +313,11 @@ export default function Finance({
       <nav className="mb-6 flex gap-2 overflow-x-auto pb-2">
         {(Object.keys(labels) as Section[])
           .filter((s) =>
-            s === "payroll" ? allowed("payroll") : allowed("finance"),
+            s === "loans"
+              ? allowed("payroll") && allowed("finance")
+              : s === "payroll"
+                ? allowed("payroll")
+                : allowed("finance"),
           )
           .map((s) => (
             <button
@@ -388,7 +395,9 @@ export default function Finance({
           </form>
         </Card>
       )}
-      {section === "reconciliation" ? (
+      {section === "loans" ? (
+        <EmployeeLoans api={api} ar={ar} allowed={allowed} />
+      ) : section === "reconciliation" ? (
         <Reconciliation
           api={api}
           ar={ar}

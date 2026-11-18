@@ -1,3 +1,4 @@
+import { registerEmployeeLoans } from "./employee-loans";
 import { registerStudentCard } from "./student-card";
 import { registerBranchLogos } from "./branch-logos";
 import { registerProfilePhotos } from "./profile-photos";
@@ -122,6 +123,14 @@ app.onError((e, c) => {
       {
         error:
           "Course package could not be saved. Check current courses, branch and immutable package terms.",
+      },
+      409,
+    );
+  if (/Employee loan/.test(String(e)))
+    return c.json(
+      {
+        error:
+          "Employee loan changed or its balance, approval, employee or journal rules prevent this operation. Reload before trying again.",
       },
       409,
     );
@@ -946,6 +955,7 @@ registerLms(app);
 registerPortalDemo(app);
 registerResourceDemo(app);
 registerStaffPayroll(app);
+registerEmployeeLoans(app);
 registerOperationsDemo(app);
 registerNotifications(app);
 registerPayroll(app);
