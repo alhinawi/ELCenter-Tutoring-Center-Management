@@ -128,21 +128,56 @@ export function registerScheduling(app: Hono<any>) {
   app.get("/api/sessions", async (c: AppContext) => {
     permit(c, "sessions");
     const a = c.get("actor"),
-      from = Number(c.req.query("from")) || now() - 31 * 86400,
-      to = Number(c.req.query("to")) || now() + 62 * 86400;
+      epoch = z.coerce.number().int().min(1).max(253402300799),
+      from = epoch.parse(c.req.query("from") ?? now() - 31 * 86400),
+      to = epoch.parse(c.req.query("to") ?? now() + 62 * 86400);
     assert(
       to > from && to - from <= 370 * 86400,
       400,
       "Choose a date range of one year or less",
     );
-    const group = c.req.query("group") || null,
-      branch = c.req.query("branch") || a.branch_id || null;
-    if (branch) scope(c, branch);
+    const group =
+        z
+          .union([z.uuid(), z.literal("")])
+          .optional()
+          .parse(c.req.query("group")) || null,
+      branch =
+        z
+          .union([z.uuid(), z.literal("")])
+          .optional()
+          .parse(c.req.query("branch")) ||
+        a.branch_id ||
+        null;
+    if (branch) {
+      scope(c, branch);
+      assert(
+        await c.env.DB.prepare(
+          "SELECT id FROM el_branches WHERE org_id=? AND id=?",
+        )
+          .bind(a.org_id, branch)
+          .first(),
+        404,
+        "Branch not found",
+      );
+    }
+    if (group) {
+      const g = await record(c, "groups", group);
+      assert(
+        !branch || g.branch_id === branch,
+        400,
+        "Group and branch filters differ",
+      );
+    }
     const rows = await c.env.DB.prepare(
-      "SELECT s.*,g.name group_name,t.name teacher_name,r.name room_name FROM el_class_sessions s JOIN el_groups g ON g.id=s.group_id JOIN el_teachers t ON t.id=s.teacher_id JOIN el_classrooms r ON r.id=s.classroom_id WHERE s.org_id=? AND (? IS NULL OR s.branch_id=?) AND (? IS NULL OR s.group_id=?) AND s.starts_at<? AND s.ends_at>? ORDER BY s.starts_at LIMIT 1000",
+      "SELECT s.*,g.name group_name,t.name teacher_name,r.name room_name FROM el_class_sessions s JOIN el_groups g ON g.id=s.group_id JOIN el_teachers t ON t.id=s.teacher_id JOIN el_classrooms r ON r.id=s.classroom_id WHERE s.org_id=? AND (? IS NULL OR s.branch_id=?) AND (? IS NULL OR s.group_id=?) AND s.starts_at<? AND s.ends_at>? ORDER BY s.starts_at,s.id LIMIT 1001",
     )
       .bind(a.org_id, branch, branch, group, group, to, from)
       .all();
+    assert(
+      rows.results.length <= 1000,
+      409,
+      "Calendar exceeds 1000 sessions; narrow the visible date range or group. No partial calendar was returned.",
+    );
     return c.json({ data: rows.results });
   });
   app.post("/api/sessions", async (c: AppContext) => {
