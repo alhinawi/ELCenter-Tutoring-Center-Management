@@ -1,4 +1,5 @@
 "use client";
+import { CoursePrerequisites } from "./course-prerequisites";
 import { RecordCustomFields } from "./custom-fields";
 import { useEffect, useState, type FormEvent } from "react";
 import {
@@ -1090,6 +1091,15 @@ export default function Academic({
                 id={details.id}
                 editable={allowed(entity, "edit")}
               />
+              {entity === "courses" && (
+                <CoursePrerequisites
+                  api={api}
+                  ar={ar}
+                  id={details.id}
+                  options={options.courses ?? []}
+                  editable={allowed("courses", "edit")}
+                />
+              )}
               {entity === "courses" && allowed("courses", "create") && (
                 <form
                   className="grid gap-3 sm:grid-cols-3"
