@@ -3,9 +3,12 @@ import { useState, useRef } from "react";
 import { Button } from "./ui";
 type Row = Record<string, any>;
 /** Isolated cloned card only, styled with the application's existing Tailwind sheet. */
-async function printCard(card: HTMLElement) {
+export async function printIsolated(
+  card: HTMLElement,
+  titleText = "ELCenter student card",
+) {
   const frame = document.createElement("iframe");
-  frame.title = "ELCenter student card print";
+  frame.title = titleText + " print";
   frame.className = "fixed start-0 top-0 h-px w-px opacity-0";
   document.body.appendChild(frame);
   const doc = frame.contentDocument;
@@ -16,7 +19,7 @@ async function printCard(card: HTMLElement) {
   doc.documentElement.lang = document.documentElement.lang;
   doc.documentElement.dir = document.documentElement.dir;
   const title = doc.createElement("title");
-  title.textContent = "ELCenter student card";
+  title.textContent = titleText;
   doc.head.appendChild(title);
   const loads: Promise<unknown>[] = [];
   document.head
@@ -110,7 +113,7 @@ export function StudentCard({ data, ar }: { data: Row; ar: boolean }) {
           setBusy(true);
           setError("");
           try {
-            if (ref.current) await printCard(ref.current);
+            if (ref.current) await printIsolated(ref.current);
           } catch (e) {
             setError((e as Error).message);
           } finally {
