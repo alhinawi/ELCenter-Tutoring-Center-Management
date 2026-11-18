@@ -2106,7 +2106,7 @@ export function PortalAdmin(p: Props) {
     L = (e: string, a: string) => (ar ? a : e);
   const [links, setLinks] = useState<Row[]>([]),
     [options, setOptions] = useState<Row | null>(null),
-    [requests, setRequests] = useState<Row[]>([]),
+    [requestVersion, setRequestVersion] = useState(0),
     [error, setError] = useState("");
   async function load() {
     try {
@@ -2115,8 +2115,6 @@ export function PortalAdmin(p: Props) {
         setLinks((await p.api("/portal-links")).data);
         setOptions(await p.api("/portal-links/options"));
       }
-      if (p.allowed("students"))
-        setRequests((await p.api("/portal-requests")).data);
     } catch (e) {
       setError(String(e));
     }
@@ -2252,30 +2250,18 @@ export function PortalAdmin(p: Props) {
           />
         </Panel>
       )}
-      <Panel title={L("Family requests", "طلبات الأسرة")}>
-        {requests.length ? (
-          requests.map((r) => (
-            <div
-              key={r.id}
-              className="border-b border-slate-100 p-5 dark:border-slate-800"
-            >
-              <div className="flex flex-wrap justify-between gap-3">
-                <div>
-                  <p className="mb-1 text-xs text-slate-500">
-                    {r.student_name} · {statusNames[r.kind]?.[ar ? 1 : 0]}
-                  </p>
-                  <h3 className="font-semibold">{r.subject}</h3>
-                </div>
-                <Badge value={r.status} ar={ar} />
-              </div>
-              <p className="my-3 whitespace-pre-wrap text-sm leading-7 text-slate-500">
-                {r.body}
-              </p>
-              {r.requested_on && (
-                <p className="mb-3 text-xs text-slate-500">{r.requested_on}</p>
-              )}
-              {r.response && <p className="my-3 text-sm">{r.response}</p>}
-              {r.status === "pending" && p.allowed("students", "approve") && (
+      {p.allowed("students") && (
+        <Panel title={L("Family requests", "طلبات الأسرة")}>
+          <FamilyRequestHistory
+            staff
+            id="staff"
+            name={L("Staff review", "مراجعة الموظفين")}
+            ar={ar}
+            api={p.api}
+            timezone={p.timezone}
+            version={requestVersion}
+            action={(r) =>
+              r.status === "pending" && p.allowed("students", "approve") ? (
                 <ActionForm
                   timezone={p.timezone}
                   title={L("Respond", "الرد على الطلب")}
@@ -2295,16 +2281,14 @@ export function PortalAdmin(p: Props) {
                       "POST",
                       d,
                     );
-                    await load();
+                    setRequestVersion((v) => v + 1);
                   }}
                 />
-              )}
-            </div>
-          ))
-        ) : (
-          <Empty>{L("No family requests yet.", "مفيش طلبات لسه.")}</Empty>
-        )}
-      </Panel>
+              ) : null
+            }
+          />
+        </Panel>
+      )}
     </div>
   );
 }
