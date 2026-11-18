@@ -3,7 +3,7 @@ import type { Hono } from "hono";
 import { seedAcademicDemo, seedLearningDemo } from "./demo";
 import { z } from "zod";
 import { assert } from "./security";
-import { uid, searchPattern } from "./db";
+import { uid, now, searchPattern } from "./db";
 import { permit, scope, audit, type AppContext } from "./app";
 const text = z.string().trim().max(500).default(""),
   name = z.string().trim().min(1).max(160),
@@ -196,7 +196,7 @@ async function validateGroup(
 }
 function csvCell(value: unknown) {
   let s = String(value ?? "");
-  if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
+  if (/^(?:\s*[=+@\-]|[\t\r])/.test(s)) s = "'" + s;
   return '"' + s.replaceAll('"', '""') + '"';
 }
 export function registerAcademic(app: Hono<any>) {
@@ -429,15 +429,50 @@ export function registerAcademic(app: Hono<any>) {
       return c.json({ data: data.results, total: total?.total ?? 0, page });
     });
     app.get(`/api/${entity}/export`, async (c: AppContext) => {
+      permit(c, entity);
       permit(c, entity, "export");
-      const a = c.get("actor");
+      const a = c.get("actor"),
+        filters = z
+          .object({
+            q: z.string().max(100).default(""),
+            branch: z.union([z.uuid(), z.literal("")]).default(""),
+          })
+          .parse(c.req.query());
+      if (filters.branch) scope(c, filters.branch);
+      const branchId = a.branch_id || filters.branch || null;
+      if (branchId)
+        assert(
+          await c.env.DB.prepare(
+            "SELECT id FROM el_branches WHERE id=? AND org_id=?",
+          )
+            .bind(branchId, a.org_id)
+            .first(),
+          404,
+          "Branch not found",
+        );
       const rows = (
         await c.env.DB.prepare(
-          `SELECT * FROM el_${entity} WHERE org_id=? AND (? IS NULL OR branch_id=?) ORDER BY name LIMIT 10000`,
+          `SELECT * FROM el_${entity} WHERE org_id=? AND (? IS NULL OR branch_id=?) AND name LIKE ? ORDER BY name,id LIMIT 10001`,
         )
-          .bind(a.org_id, a.branch_id, a.branch_id)
+          .bind(a.org_id, branchId, branchId, searchPattern(filters.q))
           .all()
       ).results as Record<string, unknown>[];
+      assert(
+        rows.length <= 10000,
+        400,
+        "Export exceeds 10000 records. Narrow the search or branch filter; no partial file was generated.",
+      );
+      const generated = now();
+      await c.env.DB.batch([
+        audit(c, entity, "export", "export", null, {
+          branch_id: branchId,
+          query: filters.q,
+          match: "same name search as list",
+          effective_pattern: searchPattern(filters.q),
+          rows: rows.length,
+          generated_at: generated,
+        }),
+      ]);
       const keys = rows.length
         ? Object.keys(rows[0]).filter(
             (x) => !["org_id", "national_id", "user_id"].includes(x),
@@ -452,6 +487,8 @@ export function registerAcademic(app: Hono<any>) {
         {
           headers: {
             "Content-Type": "text/csv; charset=utf-8",
+            "X-ELC-Export-Rows": String(rows.length),
+            "X-ELC-Export-Generated": String(generated),
             "Content-Disposition": `attachment; filename="${entity}.csv"`,
             "Cache-Control": "no-store",
           },
