@@ -123,9 +123,19 @@ export function Schedule({
       .catch((e) => setError(e.message));
   }, []);
   useEffect(() => {
+    let active = true;
+    setData([]);
+    setError("");
     api(`/sessions?from=${range.from}&to=${range.to}&group=${group}`)
-      .then((d) => setData(d.data))
-      .catch((e) => setError(e.message));
+      .then((d) => {
+        if (active) setData(d.data);
+      })
+      .catch((e) => {
+        if (active) setError(e.message);
+      });
+    return () => {
+      active = false;
+    };
   }, [range, group, version]);
   async function save(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -199,6 +209,12 @@ export function Schedule({
   }
   return (
     <>
+      <p className="mb-4 text-xs leading-6 text-slate-500">
+        {L(
+          "Calendar loads complete results up to 1000 sessions. If exceeded, choose a shorter date range or one group; no partial calendar is shown.",
+          "التقويم بيحمّل نتايج كاملة لحد 1000 حصة. لو العدد أكبر اختار فترة أقصر أو مجموعة واحدة؛ مش بنعرض تقويم ناقص.",
+        )}
+      </p>
       {allowed("attendance") && (
         <AttendanceCorrectionQueue
           api={api}
