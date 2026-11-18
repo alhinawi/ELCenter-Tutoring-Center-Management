@@ -1,4 +1,5 @@
 "use client";
+import { BranchLogo, BranchLogoSettings } from "./branch-logo";
 import { useModalFocus } from "./modal-focus";
 import { OrganizationLogo } from "./organization-logo";
 import { OrganizationProfile } from "./organization-profile";
@@ -1083,6 +1084,7 @@ function Branches({
     [page, setPage] = useState(1),
     [sort, setSort] = useState("name"),
     [editing, setEditing] = useState<Row | null>(null),
+    [logoBranch, setLogoBranch] = useState<Row | null>(null),
     [err, setErr] = useState(""),
     [busy, setBusy] = useState(false);
   const { data, error, reload } = useLoad(
@@ -1180,7 +1182,14 @@ function Branches({
                   </span>
                 </div>
                 <div className="p-5">
-                  <h2 className="mb-2 text-lg font-semibold">{b.name}</h2>
+                  <div className="mb-2 flex items-center gap-3">
+                    <BranchLogo
+                      api={api}
+                      id={String(b.id)}
+                      ar={t.language === "English"}
+                    />
+                    <h2 className="text-lg font-semibold">{b.name}</h2>
+                  </div>
                   <p className="flex min-h-10 items-start gap-2 text-xs leading-6 text-slate-500">
                     <MapPin size={14} className="mt-1 shrink-0" />
                     {b.address || "—"}
@@ -1206,18 +1215,27 @@ function Branches({
                     <p className="max-w-[70%] truncate text-xs text-slate-500">
                       {b.manager || t.branch}
                     </p>
-                    {allowed("branches", "edit") && (
+                    <div className="flex flex-wrap gap-2">
                       <button
-                        className="rounded-lg bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700 dark:bg-blue-950 dark:text-blue-300"
-                        onClick={() => {
-                          setEditing(b);
-                          setErr("");
-                        }}
+                        className="rounded-lg border border-slate-200 px-3 py-2 text-xs"
+                        onClick={() => setLogoBranch(b)}
                       >
-                        {t.edit}
+                        {t.language === "English" ? "الشعار" : "Logo"}
                         <span className="sr-only"> {b.name}</span>
                       </button>
-                    )}
+                      {allowed("branches", "edit") && (
+                        <button
+                          className="rounded-lg bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700 dark:bg-blue-950 dark:text-blue-300"
+                          onClick={() => {
+                            setEditing(b);
+                            setErr("");
+                          }}
+                        >
+                          {t.edit}
+                          <span className="sr-only"> {b.name}</span>
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               </Card>
@@ -1250,6 +1268,20 @@ function Branches({
             </div>
           </div>
         </>
+      )}
+      {logoBranch && (
+        <Modal
+          title={String(logoBranch.name)}
+          close={() => setLogoBranch(null)}
+          t={t}
+        >
+          <BranchLogoSettings
+            api={api}
+            id={String(logoBranch.id)}
+            ar={t.language === "English"}
+            editable={allowed("branches", "edit")}
+          />
+        </Modal>
       )}
       {editing && (
         <Modal
