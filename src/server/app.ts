@@ -1,3 +1,4 @@
+import { registerStudentCard } from "./student-card";
 import { registerBranchLogos } from "./branch-logos";
 import { registerProfilePhotos } from "./profile-photos";
 import { registerOrganizationLogo } from "./organization-logo";
@@ -913,6 +914,7 @@ app.get("/api/audit", async (c) => {
     .all();
   return c.json({ data: data.results });
 });
+registerStudentCard(app);
 registerAcademic(app);
 registerScheduling(app);
 registerAssessment(app);

@@ -1,4 +1,5 @@
 "use client";
+import { StudentCard } from "./student-card";
 import { ProfilePhoto } from "./profile-photo";
 import { useModalFocus } from "./modal-focus";
 import { CoursePackages } from "./course-packages";
@@ -274,11 +275,7 @@ export default function Academic({
       branch: string;
       count: string;
     } | null>(null),
-    [idCard, setIdCard] = useState<{
-      src: string;
-      name: string;
-      code: string;
-    } | null>(null);
+    [idCard, setIdCard] = useState<Row | null>(null);
   const title = academicNames[entity][ar ? 1 : 0],
     fields = definitions[entity];
   const reload = () => setVersion((v) => v + 1);
@@ -289,6 +286,7 @@ export default function Academic({
     setDetails(null);
     setDetailData(null);
     setTransfers(null);
+    setIdCard(null);
     setPage(1);
     setQ("");
   }, [entity]);
@@ -1225,16 +1223,30 @@ export default function Academic({
                     </Button>
                   </form>
                 )}
-              {entity === "students" && (
+              {entity === "students" && allowed("students", "print") && (
                 <Button
+                  disabled={busy}
                   onClick={async () => {
-                    const qr = await import("qrcode");
-                    const src = await qr.toDataURL("ELC:" + details.id, {
-                      width: 320,
-                      margin: 2,
-                      errorCorrectionLevel: "M",
-                    });
-                    setIdCard({ src, name: details.name, code: details.code });
+                    setBusy(true);
+                    setError("");
+                    try {
+                      const result = await api(
+                        "/students/" + details.id + "/id-card",
+                        "POST",
+                        {},
+                      );
+                      const qr = await import("qrcode");
+                      const src = await qr.toDataURL(result.data.qr_payload, {
+                        width: 320,
+                        margin: 2,
+                        errorCorrectionLevel: "M",
+                      });
+                      setIdCard({ ...result.data, src });
+                    } catch (e) {
+                      setError((e as Error).message);
+                    } finally {
+                      setBusy(false);
+                    }
                   }}
                 >
                   {L("Student ID card", "كارت الطالب")}
@@ -1263,27 +1275,7 @@ export default function Academic({
           title={L("Student ID card", "كارت الطالب")}
           close={() => setIdCard(null)}
         >
-          <div className="mx-auto max-w-sm rounded-2xl border border-slate-200 bg-white p-7 text-center text-slate-900">
-            <p className="text-2xl font-bold text-blue-700">ELCenter</p>
-            <span className="mx-auto my-5 flex h-16 w-16 items-center justify-center rounded-full bg-blue-50 text-blue-700">
-              <GraduationCap size={34} />
-            </span>
-            <h3 className="text-xl font-semibold">{idCard.name}</h3>
-            <p className="mt-2 text-sm text-slate-500" dir="ltr">
-              {idCard.code}
-            </p>
-            <img
-              src={idCard.src}
-              alt={L("Student identification QR code", "كود QR لتعريف الطالب")}
-              className="mx-auto mt-5 h-48 w-48"
-            />
-            <p className="text-[10px] text-slate-400">
-              {L(
-                "Scan at reception to mark attendance.",
-                "امسح الكود في الاستقبال عشان تسجّل الحضور.",
-              )}
-            </p>
-          </div>
+          <StudentCard data={idCard} ar={ar} />
         </Dialog>
       )}
       {transfers && (
