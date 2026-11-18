@@ -1,4 +1,5 @@
 "use client";
+import { FamilyInvoiceHistory } from "./family-invoice-history";
 import { FamilyAttendanceHistory } from "./family-attendance-history";
 import { FamilyResultHistory } from "./family-result-history";
 import { OrganizationLogo } from "./organization-logo";
@@ -201,6 +202,7 @@ export function Portal({
   async function load() {
     const request = ++familyRequest.current;
     setFamily(null);
+    setInvoice(null);
     try {
       setError("");
       const h = await p.api(teacher ? "/portal/teacher" : "/portal");
@@ -228,6 +230,7 @@ export function Portal({
     const request = ++familyRequest.current;
     setChild(id);
     setError("");
+    setInvoice(null);
     setFamily(null);
     try {
       const result = await p.api("/portal/students/" + id);
@@ -648,8 +651,8 @@ export function Portal({
                 </div>
                 <p className="text-xs leading-6 text-slate-500">
                   {L(
-                    "Overview totals include all eligible records. Other lists are bounded previews: first100 active/completed enrollments by group name, first100 sessions from yesterday through120 days ahead, latest100 non-draft invoices and your latest50 center requests. Results and attendance below have separate complete page navigation. Lists and totals are live reads, not an archived statement.",
-                    "إجماليات الملخص بتشمل كل السجلات المناسبة. القوائم التانية معاينات محدودة: أول100 تسجيل نشط أو مكتمل بترتيب المجموعة، أول100 حصة من إمبارح ولحد120 يوم قدام، آخر100 فاتورة مش مسودة، وآخر50 طلب للمركز ليك. النتايج والحضور تحت ليهم صفحات مستقلة للسجل كله. القوائم والإجماليات قراءة مباشرة مش كشف مؤرشف.",
+                    "Overview totals include all eligible records. Other lists are bounded previews: first100 active/completed enrollments by group name, first100 sessions from yesterday through120 days ahead, your latest50 center requests. Results, attendance and invoices below have separate complete page navigation. Lists and totals are live reads, not an archived statement.",
+                    "إجماليات الملخص بتشمل كل السجلات المناسبة. القوائم التانية معاينات محدودة: أول100 تسجيل نشط أو مكتمل بترتيب المجموعة، أول100 حصة من إمبارح ولحد120 يوم قدام، وآخر50 طلب للمركز ليك. النتايج والحضور والفواتير تحت ليهم صفحات مستقلة للسجل كله. القوائم والإجماليات قراءة مباشرة مش كشف مؤرشف.",
                   )}
                 </p>
                 <div className="grid gap-6 lg:grid-cols-2">
@@ -713,46 +716,26 @@ export function Portal({
                     "الفواتير والمدفوعات المسجلة",
                   )}
                 >
-                  {family.invoices.length ? (
-                    <Table
-                      heads={[
-                        L("Invoice", "الفاتورة"),
-                        L("Due", "الاستحقاق"),
-                        L("Total", "الإجمالي"),
-                        L("Paid", "المدفوع"),
-                        L("Status", "الحالة"),
-                        L("Details", "التفاصيل"),
-                      ]}
-                      rows={family.invoices.map((r: Row) => [
-                        r.number,
-                        r.due_date,
-                        money(r.total),
-                        money(r.paid),
-                        <Badge ar={ar} value={r.status} />,
-                        <button
-                          className="font-medium text-blue-700"
-                          onClick={() =>
-                            void p
-                              .api("/portal/invoices/" + r.id)
-                              .then(setInvoice)
-                              .catch((e) => setError(String(e)))
-                          }
-                        >
-                          {L("View invoice", "عرض الفاتورة")}
-                        </button>,
-                      ])}
-                    />
-                  ) : (
-                    <Empty>
-                      {L("No issued invoices.", "مفيش فواتير صادرة.")}
-                    </Empty>
-                  )}
-                  <p className="px-5 py-4 text-xs text-slate-500">
-                    {L(
-                      "Payments shown are recorded by the center. Online payment is not connected.",
-                      "المدفوعات دي مسجلة بواسطة المركز. الدفع أونلاين غير متصل حاليا.",
-                    )}
-                  </p>
+                  <FamilyInvoiceHistory
+                    key={family.student.id}
+                    id={family.student.id}
+                    name={family.student.name}
+                    api={p.api}
+                    ar={ar}
+                    view={async (id) => {
+                      const request = familyRequest.current;
+                      setInvoice(null);
+                      setError("");
+                      try {
+                        const result = await p.api("/portal/invoices/" + id);
+                        if (request === familyRequest.current)
+                          setInvoice(result);
+                      } catch (e) {
+                        if (request === familyRequest.current)
+                          setError(String(e));
+                      }
+                    }}
+                  />
                 </Panel>
                 <Panel title={L("Contact your center", "التواصل مع المركز")}>
                   <div className="p-5">
