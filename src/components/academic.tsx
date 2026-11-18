@@ -1,4 +1,5 @@
 "use client";
+import { RecordCustomFields } from "./custom-fields";
 import { useEffect, useState, type FormEvent } from "react";
 import {
   Plus,
@@ -1082,6 +1083,13 @@ export default function Academic({
                   </form>
                 </section>
               )}
+              <RecordCustomFields
+                api={api}
+                ar={ar}
+                entity={entity}
+                id={details.id}
+                editable={allowed(entity, "edit")}
+              />
               {entity === "courses" && allowed("courses", "create") && (
                 <form
                   className="grid gap-3 sm:grid-cols-3"
