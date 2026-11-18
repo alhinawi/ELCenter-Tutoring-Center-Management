@@ -259,7 +259,7 @@ export function registerPortals(app: Hono<any>) {
       ).results,
       payments: (
         await c.env.DB.prepare(
-          "SELECT id,date,amount,kind,method,reference FROM el_payments WHERE invoice_id=? AND org_id=? ORDER BY date",
+          "SELECT p.id,p.date,p.amount,p.kind,p.method,p.reference,n.number receipt_number FROM el_payments p LEFT JOIN el_receipt_numbers n ON n.org_id=p.org_id AND n.payment_id=p.id WHERE p.invoice_id=? AND p.org_id=? ORDER BY p.date,p.id",
         )
           .bind(i.id, a.org_id)
           .all()

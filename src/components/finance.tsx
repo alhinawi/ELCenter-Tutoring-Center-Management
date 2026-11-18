@@ -1,5 +1,6 @@
 "use client";
 import { useModalFocus } from "./modal-focus";
+import { ReceiptNumberSettings } from "./receipt-numbering";
 import { InvoiceNumberSettings } from "./invoice-numbering";
 import {
   InvoicePrintHeader,
@@ -472,6 +473,11 @@ export default function Finance({
             api={api}
             ar={ar}
             editable={allowed("finance", "manage") && headquarters}
+          />
+          <ReceiptNumberSettings
+            api={api}
+            ar={ar}
+            editable={headquarters && allowed("finance", "manage")}
           />
           <InvoicePrintSettings
             api={api}
@@ -1487,7 +1493,14 @@ export default function Finance({
               <p className="mt-2 text-slate-400">
                 {p.reference} · {p.reason}
                 <br />
-                {L("Receipt ID", "رقم الإيصال")}: {p.id}
+                {p.receipt_number && (
+                  <>
+                    {L("Receipt number", "رقم إيصال القبض")}:{" "}
+                    <span dir="ltr">{p.receipt_number}</span>
+                    <br />
+                  </>
+                )}
+                {L("Receipt ID", "معرّف الإيصال")}: {p.id}
               </p>
               {p.kind === "receipt" && allowed("finance", "approve") && (
                 <button
