@@ -5,6 +5,62 @@ import { permit, scope, audit, type AppContext } from "./app";
 import { assert } from "./security";
 import { entity, date, accounts, journal } from "./finance";
 export function registerFinancePlans(app: Hono<any>) {
+  app.post("/api/invoices/:id/coupon", async (c: AppContext) => {
+    permit(c, "finance", "edit");
+    const invoice = await entity(c, "invoices", c.req.param("id")!),
+      d = z
+        .object({ code: z.string().trim().min(1).max(30) })
+        .parse(await c.req.json());
+    assert(
+      invoice.status === "draft",
+      409,
+      "Only draft invoices can use coupons",
+    );
+    const coupon = await c.env.DB.prepare(
+      "SELECT * FROM el_coupons WHERE org_id=? AND branch_id=? AND code=? AND status='active' AND starts_on<=? AND ends_on>=?",
+    )
+      .bind(
+        invoice.org_id,
+        invoice.branch_id,
+        d.code,
+        invoice.date,
+        invoice.date,
+      )
+      .first<Record<string, any>>();
+    assert(coupon, 409, "Coupon unavailable for invoice date or branch");
+    const gross = await c.env.DB.prepare(
+      "SELECT sum(quantity*unit_price) gross FROM el_invoice_items WHERE invoice_id=?",
+    )
+      .bind(invoice.id)
+      .first<{ gross: number }>();
+    const discount =
+        coupon.type === "percent"
+          ? Math.round((gross!.gross * coupon.value) / 100)
+          : coupon.value,
+      total = gross!.gross - discount;
+    assert(total > 0, 400, "Coupon must leave a positive invoice total");
+    const related = await c.env.DB.prepare(
+      "SELECT (SELECT count(*) FROM el_installments WHERE invoice_id=?) plans,(SELECT COALESCE(sum(amount),0) FROM el_invoice_teacher_shares WHERE invoice_id=?) allocated",
+    )
+      .bind(invoice.id, invoice.id)
+      .first<{ plans: number; allocated: number }>();
+    assert(
+      !related!.plans && related!.allocated <= total,
+      409,
+      "Apply coupon before installment plan and adjust teacher allocations first",
+    );
+    await c.env.DB.batch([
+      c.env.DB.prepare(
+        "UPDATE el_invoices SET coupon_id=?,discount=?,total=? WHERE id=? AND status='draft'",
+      ).bind(coupon.id, discount, total, invoice.id),
+      audit(c, "invoice", invoice.id, "apply_coupon", invoice, {
+        coupon_id: coupon.id,
+        discount,
+        total,
+      }),
+    ]);
+    return c.json({ ok: true, total, discount });
+  });
   app.put("/api/invoices/:id/installments", async (c: AppContext) => {
     permit(c, "finance", "edit");
     const i = await entity(c, "invoices", c.req.param("id")!),

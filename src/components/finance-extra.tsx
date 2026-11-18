@@ -440,3 +440,78 @@ export function printRecord(title: string, body: HTMLElement) {
     setTimeout(() => frame.remove(), 1000);
   }, 100);
 }
+export function PayrollSnapshot({
+  value,
+  ar,
+  money,
+}: {
+  value: Record<string, any>;
+  ar: boolean;
+  money: (n: number) => string;
+}) {
+  const L = (e: string, a: string) => (ar ? a : e);
+  const rows: [string, unknown][] = value.contract
+    ? [
+        [L("Monthly salary", "المرتب الشهري"), money(value.contract.salary)],
+        [L("Scheduled days", "أيام العمل"), value.scheduled_days],
+        [
+          L("Absent / unpaid leave days", "أيام الغياب / الإجازة بدون أجر"),
+          value.absent_days + " / " + value.unpaid_leave_days,
+        ],
+        [
+          L("Attendance deduction", "خصم الحضور"),
+          money(value.absence_deduction),
+        ],
+        [L("Overtime minutes", "دقايق الإضافي"), value.overtime_minutes],
+        [L("Overtime pay", "أجر الإضافي"), money(value.overtime_pay)],
+        [L("Bonus", "مكافأة"), money(value.bonus)],
+        [L("Additional deduction", "خصم إضافي"), money(value.deduction)],
+      ]
+    : [
+        [L("Agreement", "الاتفاق"), value.agreement?.type],
+        [
+          L("Base / rate / percent", "الأساسي / السعر / النسبة"),
+          [
+            value.agreement?.base,
+            value.agreement?.rate,
+            value.agreement?.percent,
+          ].join(" / "),
+        ],
+        ...[
+          ["minutes", L("Teaching minutes", "دقايق التدريس")],
+          ["sessions", L("Completed sessions", "الحصص المكتملة")],
+          ["students", L("Students", "الطلاب")],
+          ["revenue", L("Attributed collections", "التحصيل المخصص")],
+        ].map(
+          ([key, label]) => [label, value.stats?.[key]] as [string, unknown],
+        ),
+      ];
+  return (
+    <dl className="mt-4 grid gap-3 rounded-xl bg-slate-50 p-4 text-xs dark:bg-slate-800">
+      {rows.map(([label, value]) => (
+        <div key={label} className="flex justify-between gap-4">
+          <dt className="text-slate-400">{label}</dt>
+          <dd className="text-end" dir="ltr">
+            {String(value ?? 0)}
+          </dd>
+        </div>
+      ))}
+      {(value.reason || value.adjustment_reason) && (
+        <div className="mt-2 border-t border-slate-200 pt-3 dark:border-slate-700">
+          <dt className="text-slate-400">
+            {L("Adjustment reason", "سبب التعديل")}
+          </dt>
+          <dd className="mt-2 leading-6">
+            {value.reason || value.adjustment_reason}
+          </dd>
+        </div>
+      )}
+      <p className="mt-1 text-[10px] text-slate-400">
+        {L(
+          "Saved calculation. Rounded to whole currency units.",
+          "حسبة محفوظة، بالتقريب لأقرب وحدة عملة.",
+        )}
+      </p>
+    </dl>
+  );
+}

@@ -7,8 +7,8 @@ Each phase is a real pull request with tested server persistence and usable scre
 | 1     | Foundation, authentication, organization, branches, users, RBAC, dashboard      | Merged, PR #1 |
 | 2     | Students, guardians, teachers, courses, groups, classrooms, safe demo toggle    | Merged, PR #2 |
 | 3     | Timetables, sessions, attendance, exams, performance                            | Merged, PR #3 |
-| 4     | Invoices, payments, expenses, accounting, payroll                               | In review     |
-| 5     | HR, CRM, notifications, marketing, reception                                    | Planned       |
+| 4     | Invoices, payments, expenses, accounting, payroll                               | Merged, PR #4 |
+| 5     | HR, CRM, notifications, marketing, reception                                    | In review     |
 | 6     | Student, guardian and teacher portals, LMS                                      | Planned       |
 | 7     | Inventory, library, support, documents, reports                                 | Planned       |
 | 8     | Security hardening, automations, integrations, performance, testing, deployment | Planned       |
@@ -24,3 +24,11 @@ The core workflows above are not a claim that every detailed requirement is alre
 Phase 4 adds persisted invoice issue, partial receipt/refund, draft installment plans, approved expenses, supplier payables and partial settlements, balanced immutable double-entry journals with reversals, branch scopes, closed-period guards, cutoff-aware balance sheets, income/trial balance and cash/bank movement reports, cleared-line reconciliation, and six teacher compensation formulas with immutable calculation snapshots and separate preparer/approver/payer. Print views provide invoices/receipts and teacher payslips. These are operational records, not a payment gateway or a claim of statutory accounting compliance.
 
 Remaining detailed finance scope before final sign-off: employee-linked compensation and attendance/leave/overtime deductions (requires phase 5 HR), advances/loan recovery, configurable revenue classifications/promotions and recurring subscriptions, accrual payroll approval entries and zero-payroll closure, richer cost-center dimensions beyond branches, independent accountant review, full ledger cursor pagination and statement export. Cash-flow output is a cash/bank movement breakdown by source, not a statutory operating/investing/financing cash-flow statement. Reconciliation matches selected statement-cleared ledger lines once; it does not connect to a bank or import bank statements. Invoice and receipt print views are not electronic tax invoices.
+
+## People and admissions delivery notes
+
+Phase 5 adds branch-scoped employee profiles, departments, contracts with explicit ISO workdays and overtime rates, staff attendance, shift overlap/leave guards, independent leave decisions, reviews/history, recruitment stages and one-time offer-to-hire. Employee payroll uses a full-month contract, complete recorded attendance, approved leave, explicit workdays, overtime, bonus/deduction reasons and an immutable calculation snapshot. Approval accrues wages to payroll payable, then a separate payer records settlement. Partial-month or ambiguous contracts are held for review, not guessed.
+
+Admissions includes campaign attribution, assigned advisers, lead follow-ups and interaction logs, one-time student conversion, acquisition counts, branch coupons with issue-time limits, visits/appointments and ordered check-in/out. Personal inboxes, notification preferences, stored templates and branch announcements have stored/read/blocked logs. External email, SMS and WhatsApp remain blocked until a provider is configured; no messages are claimed sent.
+
+Remaining detailed scope includes advances/loans, configurable paid-leave entitlements, recruitment/contract documents (phase 7), referral-reward accounting, promotional course packages, richer automated reception queues, external delivery providers and recurring notification automation (phase 8). Earlier phase details remain binding until the final verification pass.

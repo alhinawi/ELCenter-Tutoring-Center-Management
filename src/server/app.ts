@@ -1,3 +1,7 @@
+import { registerStaffPayroll } from "./staff-payroll";
+import { registerOperationsDemo } from "./demo-operations";
+import { registerOperations } from "./operations";
+import { registerNotifications } from "./notifications";
 import { registerFinancePlans } from "./finance-plans";
 import { registerPayroll } from "./payroll";
 import { registerFinance } from "./finance";
@@ -49,14 +53,14 @@ app.onError((e, c) => {
       400,
     );
   if (
-    /Group is full|Room unavailable|Teacher not assigned|Course not assigned|Student and active group|Transfer is no longer pending|Schedule conflict|Published exam questions|Journal must|Journal already|Posted journal|Financial period|Payment exceeds|Refund exceeds|Invoice is not issued|Refund receipts|Finalized expense|Expense approver|Invalid payroll|Payroll approver|Payroll payment|Calculated payroll|Teacher allocations|Invoice allocations|Settlement exceeds|Installments must|Installment date|Issued installment|Finalized invoices|Voided invoice|Reconciliations|Settlements are/.test(
+    /Group is full|Room unavailable|Teacher not assigned|Course not assigned|Student and active group|Transfer is no longer pending|Schedule conflict|Published exam questions|Journal must|Journal already|Posted journal|Financial period|Payment exceeds|Refund exceeds|Invoice is not issued|Refund receipts|Finalized expense|Expense approver|Invalid payroll|Payroll approver|Payroll payment|Calculated payroll|Teacher allocations|Invoice allocations|Employee shift|Employee payroll|Coupon is|Hired application|Visitor check|Leave decision|Approved leave|Converted lead|Settlement exceeds|Installments must|Installment date|Issued installment|Finalized invoices|Voided invoice|Reconciliations|Settlements are/.test(
       String(e),
     )
   )
     return c.json(
       {
         error: (e as Error).message.replace(
-          /^.*?(?=Group is full|Room unavailable|Teacher not assigned|Course not assigned|Student and active group|Transfer is no longer pending|Schedule conflict|Published exam questions|Journal must|Journal already|Posted journal|Financial period|Payment exceeds|Refund exceeds|Invoice is not issued|Refund receipts|Finalized expense|Expense approver|Invalid payroll|Payroll approver|Payroll payment|Calculated payroll|Teacher allocations|Invoice allocations|Settlement exceeds|Installments must|Installment date|Issued installment|Finalized invoices|Voided invoice|Reconciliations|Settlements are)/,
+          /^.*?(?=Group is full|Room unavailable|Teacher not assigned|Course not assigned|Student and active group|Transfer is no longer pending|Schedule conflict|Published exam questions|Journal must|Journal already|Posted journal|Financial period|Payment exceeds|Refund exceeds|Invoice is not issued|Refund receipts|Finalized expense|Expense approver|Invalid payroll|Payroll approver|Payroll payment|Calculated payroll|Teacher allocations|Invoice allocations|Employee shift|Employee payroll|Coupon is|Hired application|Visitor check|Leave decision|Approved leave|Converted lead|Settlement exceeds|Installments must|Installment date|Issued installment|Finalized invoices|Voided invoice|Reconciliations|Settlements are)/,
           "",
         ),
       },
@@ -774,6 +778,10 @@ registerScheduling(app);
 registerAssessment(app);
 registerFinance(app);
 registerFinancePlans(app);
+registerOperations(app);
+registerStaffPayroll(app);
+registerOperationsDemo(app);
+registerNotifications(app);
 registerPayroll(app);
 app.notFound((c) => c.json({ error: "Endpoint not found" }, 404));
 export default app;
