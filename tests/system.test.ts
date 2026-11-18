@@ -263,4 +263,114 @@ test("security, scoped search and idempotent in-app automation", async (t) => {
       );
     },
   );
+  await t.test(
+    "family automation revalidates role, student and guardian branch ownership",
+    async () => {
+      const user = randomUUID(),
+        member = randomUUID(),
+        guardian = randomUUID(),
+        invoice = randomUUID();
+      const role = raw
+        .prepare(
+          "SELECT id FROM el_roles WHERE org_id=? AND system_key='parent_guardian'",
+        )
+        .get(org) as any;
+      const otherBranch = randomUUID();
+      raw
+        .prepare("INSERT INTO el_branches(id,org_id,name,code) VALUES(?,?,?,?)")
+        .run(otherBranch, org, "Different branch", "SYS-OTHER");
+      raw
+        .prepare(
+          "INSERT INTO el_users(id,name,email,password_hash) SELECT ?,?,?,password_hash FROM el_users WHERE id=?",
+        )
+        .run(
+          user,
+          "Reminder fixture",
+          "reminder@example.invalid",
+          me.user.user_id,
+        );
+      raw
+        .prepare(
+          "INSERT INTO el_memberships(id,org_id,user_id,role_id,branch_id) VALUES(?,?,?,?,?)",
+        )
+        .run(member, org, user, role.id, branch);
+      raw
+        .prepare(
+          "INSERT INTO el_guardians(id,org_id,branch_id,name) VALUES(?,?,?,?)",
+        )
+        .run(guardian, org, branch, "Guardian fixture");
+      raw
+        .prepare(
+          "INSERT INTO el_student_guardians(org_id,student_id,guardian_id) VALUES(?,?,?)",
+        )
+        .run(org, student, guardian);
+      raw
+        .prepare(
+          "INSERT INTO el_portal_links(id,org_id,user_id,kind,guardian_id,created_by) VALUES(?,?,?,'guardian',?,?)",
+        )
+        .run(randomUUID(), org, user, guardian, me.user.user_id);
+      raw
+        .prepare(
+          "INSERT INTO el_invoices(id,org_id,branch_id,student_id,number,date,due_date,total,status,created_by) VALUES(?,?,?,?,?,'2020-01-01','2020-01-02',100,'issued',?)",
+        )
+        .run(invoice, org, branch, student, "SYS-REMINDER", me.user.user_id);
+      const events = () =>
+        Number(
+          (
+            raw
+              .prepare(
+                "SELECT count(*) n FROM el_automation_events WHERE user_id=? AND entity_id=?",
+              )
+              .get(user, invoice) as any
+          ).n,
+        );
+      const clear = () =>
+        raw
+          .prepare(
+            "DELETE FROM el_automation_events WHERE user_id=? AND entity_id=?",
+          )
+          .run(user, invoice);
+      await runAutomation(db, org, "test");
+      assert.equal(events(), 1);
+      clear();
+      raw
+        .prepare("UPDATE el_memberships SET branch_id=? WHERE id=?")
+        .run(otherBranch, member);
+      await runAutomation(db, org, "test");
+      assert.equal(events(), 0);
+      raw
+        .prepare("UPDATE el_memberships SET branch_id=?,role_id=? WHERE id=?")
+        .run(branch, me.user.role_id, member);
+      await runAutomation(db, org, "test");
+      assert.equal(events(), 0);
+      raw
+        .prepare("UPDATE el_memberships SET role_id=? WHERE id=?")
+        .run(role.id, member);
+      raw
+        .prepare("UPDATE el_guardians SET branch_id=? WHERE id=?")
+        .run(otherBranch, guardian);
+      await runAutomation(db, org, "test");
+      assert.equal(events(), 0);
+      raw
+        .prepare(
+          "UPDATE el_guardians SET branch_id=?,status='inactive' WHERE id=?",
+        )
+        .run(branch, guardian);
+      await runAutomation(db, org, "test");
+      assert.equal(events(), 0);
+      raw
+        .prepare("UPDATE el_guardians SET status='active' WHERE id=?")
+        .run(guardian);
+      raw
+        .prepare("UPDATE el_students SET status='suspended' WHERE id=?")
+        .run(student);
+      await runAutomation(db, org, "test");
+      assert.equal(events(), 0);
+      raw
+        .prepare("UPDATE el_students SET status='active' WHERE id=?")
+        .run(student);
+      await runAutomation(db, org, "test");
+      assert.equal(events(), 1);
+    },
+  );
 });

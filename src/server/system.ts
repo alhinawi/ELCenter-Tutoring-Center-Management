@@ -47,10 +47,23 @@ export async function runAutomation(
       title: "Document expiration / انتهاء مستند",
       body: d.title + " · " + d.expires_on,
     });
+  // Match current portal role, profile availability and BOTH profile/student
+  // branch scopes before disclosing new family reminders into the inbox.
+  const familyAccess = (alias: string) => `
+    AND EXISTS(SELECT 1 FROM el_roles pr WHERE pr.id=m.role_id AND
+      ((l.kind='student' AND pr.system_key='student') OR
+       (l.kind='guardian' AND pr.system_key='parent_guardian')))
+    AND EXISTS(SELECT 1 FROM el_students ps WHERE ps.id=${alias}.student_id
+      AND ps.org_id=${alias}.org_id AND ps.status NOT IN ('inactive','suspended','withdrawn')
+      AND (m.branch_id IS NULL OR m.branch_id=ps.branch_id))
+    AND (l.kind='student' OR EXISTS(SELECT 1 FROM el_guardians pg
+      WHERE pg.id=l.guardian_id AND pg.org_id=l.org_id AND pg.status='active'
+      AND (m.branch_id IS NULL OR m.branch_id=pg.branch_id)))
+    AND (m.branch_id IS NULL OR m.branch_id=${alias}.branch_id)`;
   const overdue = (
     await db
       .prepare(
-        "SELECT i.id,i.number,l.user_id FROM el_invoices i JOIN el_portal_links l ON l.org_id=i.org_id AND (l.student_id=i.student_id OR l.guardian_id IN (SELECT guardian_id FROM el_student_guardians sg WHERE sg.student_id=i.student_id AND sg.org_id=i.org_id)) JOIN el_memberships m ON m.org_id=l.org_id AND m.user_id=l.user_id WHERE i.org_id=? AND NOT EXISTS(SELECT 1 FROM el_notification_preferences np WHERE np.org_id=i.org_id AND np.user_id=l.user_id AND np.in_app=0) AND i.is_demo=0 AND i.status='issued' AND i.due_date<? AND m.status='active' AND NOT EXISTS(SELECT 1 FROM el_automation_events ev WHERE ev.org_id=i.org_id AND ev.user_id=l.user_id AND ev.kind='invoice_due' AND ev.entity_id=i.id AND ev.period=substr(?,1,7)) AND i.total>COALESCE((SELECT sum(CASE WHEN p.kind='receipt' THEN p.amount ELSE -p.amount END) FROM el_payments p WHERE p.invoice_id=i.id),0) ORDER BY i.due_date,i.id LIMIT 100",
+        `SELECT i.id,i.number,l.user_id FROM el_invoices i JOIN el_portal_links l ON l.org_id=i.org_id AND (l.student_id=i.student_id OR l.guardian_id IN (SELECT guardian_id FROM el_student_guardians sg WHERE sg.student_id=i.student_id AND sg.org_id=i.org_id)) JOIN el_memberships m ON m.org_id=l.org_id AND m.user_id=l.user_id WHERE i.org_id=? AND NOT EXISTS(SELECT 1 FROM el_notification_preferences np WHERE np.org_id=i.org_id AND np.user_id=l.user_id AND np.in_app=0) AND i.is_demo=0 AND i.status='issued' AND i.due_date<? AND m.status='active' AND NOT EXISTS(SELECT 1 FROM el_automation_events ev WHERE ev.org_id=i.org_id AND ev.user_id=l.user_id AND ev.kind='invoice_due' AND ev.entity_id=i.id AND ev.period=substr(?,1,7)) AND i.total>COALESCE((SELECT sum(CASE WHEN p.kind='receipt' THEN p.amount ELSE -p.amount END) FROM el_payments p WHERE p.invoice_id=i.id),0) ${familyAccess("i")} ORDER BY i.due_date,i.id LIMIT 100`,
       )
       .bind(org, day, day)
       .all<Record<string, any>>()
@@ -70,7 +83,7 @@ export async function runAutomation(
   const loans = (
     await db
       .prepare(
-        "SELECT r.id,r.due_on,l.user_id,b.title FROM el_borrow_records r JOIN el_library_copies co ON co.id=r.copy_id JOIN el_library_books b ON b.id=co.book_id JOIN el_portal_links l ON l.org_id=r.org_id AND (l.student_id=r.student_id OR l.guardian_id IN(SELECT guardian_id FROM el_student_guardians WHERE org_id=r.org_id AND student_id=r.student_id)) JOIN el_memberships m ON m.org_id=l.org_id AND m.user_id=l.user_id WHERE r.org_id=? AND NOT EXISTS(SELECT 1 FROM el_notification_preferences np WHERE np.org_id=r.org_id AND np.user_id=l.user_id AND np.in_app=0) AND r.is_demo=0 AND r.returned_on IS NULL AND r.due_on<=? AND m.status='active' AND NOT EXISTS(SELECT 1 FROM el_automation_events ev WHERE ev.org_id=r.org_id AND ev.user_id=l.user_id AND ev.kind='library_due' AND ev.entity_id=r.id AND ev.period=substr(?,1,7)) ORDER BY r.due_on,r.id LIMIT 100",
+        `SELECT r.id,r.due_on,l.user_id,b.title FROM el_borrow_records r JOIN el_library_copies co ON co.id=r.copy_id JOIN el_library_books b ON b.id=co.book_id JOIN el_portal_links l ON l.org_id=r.org_id AND (l.student_id=r.student_id OR l.guardian_id IN(SELECT guardian_id FROM el_student_guardians WHERE org_id=r.org_id AND student_id=r.student_id)) JOIN el_memberships m ON m.org_id=l.org_id AND m.user_id=l.user_id WHERE r.org_id=? AND NOT EXISTS(SELECT 1 FROM el_notification_preferences np WHERE np.org_id=r.org_id AND np.user_id=l.user_id AND np.in_app=0) AND r.is_demo=0 AND r.returned_on IS NULL AND r.due_on<=? AND m.status='active' AND NOT EXISTS(SELECT 1 FROM el_automation_events ev WHERE ev.org_id=r.org_id AND ev.user_id=l.user_id AND ev.kind='library_due' AND ev.entity_id=r.id AND ev.period=substr(?,1,7)) ${familyAccess("r")} ORDER BY r.due_on,r.id LIMIT 100`,
       )
       .bind(org, today.add({ days: 2 }).toString(), day)
       .all<Record<string, any>>()
