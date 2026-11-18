@@ -235,6 +235,14 @@ export function registerAcademic(app: Hono<any>) {
       return c.json({ enabled: true });
     }
     const tables = [
+      "lesson_progress",
+      "submissions",
+      "lessons",
+      "assignments",
+      "discussions",
+      "portal_requests",
+      "portal_links",
+      "quiz_attempts",
       "delivery_logs",
       "notifications",
       "announcements",

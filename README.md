@@ -2,7 +2,7 @@
 
 A bilingual, multi-branch education operations platform. Next.js and Tailwind on the frontend, Hono Pages Functions and a relational Cloudflare D1 database on the server.
 
-## Working release: Foundation, academics and finance
+## Working release: Connected operations, portals and learning
 
 - Organization creation and real email/password authentication, salted PBKDF2 hashes, hashed sessions, HttpOnly cookies and CSRF checks.
 - 18 seeded roles, configurable custom roles and granular server-checked permissions. Branch-scoped memberships and organization isolation.
@@ -30,6 +30,11 @@ A bilingual, multi-branch education operations platform. Next.js and Tailwind on
 - Employee payroll from complete attendance/approved leave and explicit contract workdays, overtime and approved adjustments. Separate approval accrues wages and a third user records settlement.
 - Lead adviser assignment, campaign attribution, follow-ups/interactions, atomic student conversion, coupon-limited invoice discounts and visitor check-in/out.
 - Private in-app inboxes, templates, preferences and announcement delivery logs. Unconfigured external channels record blocked delivery, never a false send.
+
+- Dedicated identity-bound student, multi-child guardian and teacher portals, with server-side ownership and branch checks. Generic backoffice APIs are denied for these system roles.
+- Family profiles, schedules, attendance, finalized results, issued invoices, recorded payments, printable invoice history and tracked requests to administration.
+- Teacher class rosters/performance, own schedule/attendance, exam/question authoring and grading, approved salary snapshots and HR-linked leave requests.
+- Published LMS lessons and labeled external resources, persisted completion, immutable one-time homework, grading/feedback, class discussions/moderation, scoped announcements and one-time online quizzes. Answer keys remain server-only for learners; essays await teacher review.
 
 This is a phased implementation, **not yet a complete enterprise ERP**. See [the delivery plan](docs/ROADMAP.md) for the remaining phases. Do not enter real student or financial data until the remaining security and recovery work is complete.
 
