@@ -6,7 +6,7 @@ import { getCookie, setCookie, deleteCookie } from "hono/cookie";
 import { HTTPException } from "hono/http-exception";
 import { z } from "zod";
 import type { Env, Database, Statement } from "./db";
-import { uid, now } from "./db";
+import { uid, now, searchPattern } from "./db";
 import {
   assert,
   hashPassword,
@@ -444,7 +444,13 @@ app.get("/api/branches", async (c) => {
   const dir = c.req.query("direction") === "desc" ? "DESC" : "ASC";
   const where =
     "org_id=? AND (? IS NULL OR id=?) AND (name LIKE ? OR code LIKE ?)";
-  const vals = [a.org_id, a.branch_id, a.branch_id, `%${q}%`, `%${q}%`];
+  const vals = [
+    a.org_id,
+    a.branch_id,
+    a.branch_id,
+    searchPattern(q),
+    searchPattern(q),
+  ];
   const count = await c.env.DB.prepare(
     `SELECT count(*) total FROM el_branches WHERE ${where}`,
   )

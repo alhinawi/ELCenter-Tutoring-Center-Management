@@ -11,3 +11,15 @@ export interface Database {
 export type Env = { DB: Database; ENVIRONMENT?: string };
 export const uid = () => crypto.randomUUID();
 export const now = () => Math.floor(Date.now() / 1000);
+
+export function searchPattern(input: string) {
+  let value = "",
+    bytes = 0;
+  for (const char of input) {
+    const size = new TextEncoder().encode(char).length;
+    if (bytes + size > 46) break;
+    value += char;
+    bytes += size;
+  }
+  return "%" + value + "%";
+}

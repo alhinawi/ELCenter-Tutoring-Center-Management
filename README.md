@@ -65,6 +65,6 @@ Photographs: Unsplash contributors, downloaded and served locally. IBM Plex Sans
 
 ### Operational limits
 
-Attendance is saved in batches of up to 22 students to respect the shared free D1 query budget. A failed later batch does not roll back earlier saved batches. The interface makes this explicit. Guardian absence notices currently remain in-app, with no external delivery claim. Weekly recurrence is capped at ten sessions per atomic request. Demo academic and learning datasets are seeded in separate idempotent requests; cleanup remains atomic and refuses real-data references.
+Up to 500 attendance records save atomically in a single D1 batch. Cloudflare counts a batch as one invocation query, while each SQL statement keeps its own parameter limits. Guardian absence notices currently remain in-app, with no external delivery claim. Weekly recurrence is capped at ten sessions per atomic request. Demo academic and learning datasets are seeded in separate idempotent requests; cleanup remains atomic and refuses real-data references.
 
 Calendar interaction uses FullCalendar's MIT-licensed packaged styles. All application-specific layout and styling uses Tailwind utilities, without authored CSS rules.

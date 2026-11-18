@@ -400,7 +400,7 @@ export function registerScheduling(app: Hono<any>) {
               ),
           )
           .min(1)
-          .max(100),
+          .max(500),
       })
       .parse(await c.req.json());
     const eligible = (
@@ -473,11 +473,6 @@ export function registerScheduling(app: Hono<any>) {
           ).bind(s.id, r.student_id),
         );
     }
-    assert(
-      statements.length <= 44,
-      400,
-      "Submit attendance in batches of 22 students or fewer",
-    );
     await c.env.DB.batch([
       ...statements,
       audit(c, "attendance", s.id, "bulk_update", null, {

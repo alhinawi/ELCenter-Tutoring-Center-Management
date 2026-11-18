@@ -164,16 +164,19 @@ export function Schedule({
     setError("");
     try {
       const selected = roster.data.filter((r: Row) => r.status);
-      for (let i = 0; i < selected.length; i += 22)
-        await api(`/sessions/${roster.session.id}/attendance`, "POST", {
-          rows: selected.slice(i, i + 22).map((r: Row) => ({
-            student_id: r.student_id,
-            status: r.status,
-            arrival: r.arrival ?? null,
-            departure: r.departure ?? null,
-            notes: r.notes ?? "",
-          })),
-        });
+      if (selected.length > 500)
+        throw new Error(
+          "Select 500 students or fewer per atomic attendance request",
+        );
+      await api(`/sessions/${roster.session.id}/attendance`, "POST", {
+        rows: selected.map((r: Row) => ({
+          student_id: r.student_id,
+          status: r.status,
+          arrival: r.arrival ?? null,
+          departure: r.departure ?? null,
+          notes: r.notes ?? "",
+        })),
+      });
       toast();
       setRoster(null);
     } catch (e) {
@@ -575,8 +578,8 @@ export function Schedule({
           )}
           <p className="mb-4 rounded-xl bg-blue-50 p-3 text-xs leading-6 text-blue-700 dark:bg-blue-950 dark:text-blue-300">
             {L(
-              "Absences create in-app guardian alerts, not SMS, email or WhatsApp messages. Groups over 22 students save in separate batches; if a later batch fails, earlier saved batches remain.",
-              "الغياب بيعمل تنبيه لولي الأمر جوّه الموقع، مش رسالة SMS أو إيميل أو واتساب. المجموعات الأكبر من 22 طالب بتتحفظ على دفعات منفصلة؛ لو دفعة فشلت، الدفعات اللي اتحفظت بتفضل موجودة.",
+              "Absences create in-app guardian alerts, not SMS, email or WhatsApp messages. Up to 500 selected attendance records save together in one transaction.",
+              "الغياب بيعمل تنبيه لولي الأمر جوّه الموقع، مش رسالة SMS أو إيميل أو واتساب. لحد 500 سجل حضور بيتحفظوا مع بعض في عملية واحدة.",
             )}
           </p>
           <div className="grid gap-3">

@@ -2,7 +2,7 @@ import type { Hono } from "hono";
 import { seedAcademicDemo, seedLearningDemo } from "./demo";
 import { z } from "zod";
 import { assert } from "./security";
-import { uid } from "./db";
+import { uid, searchPattern } from "./db";
 import { permit, scope, audit, type AppContext } from "./app";
 const text = z.string().trim().max(500).default(""),
   name = z.string().trim().min(1).max(160),
@@ -343,7 +343,7 @@ export function registerAcademic(app: Hono<any>) {
         : "name";
       const dir = c.req.query("direction") === "desc" ? "DESC" : "ASC";
       const where = "org_id=? AND (? IS NULL OR branch_id=?) AND name LIKE ?";
-      const vals = [a.org_id, branchId, branchId, `%${q}%`];
+      const vals = [a.org_id, branchId, branchId, searchPattern(q)];
       const total = await c.env.DB.prepare(
         `SELECT count(*) total FROM el_${entity} WHERE ${where}`,
       )
