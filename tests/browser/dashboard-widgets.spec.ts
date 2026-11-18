@@ -19,7 +19,7 @@ test("dashboard widget visibility order save/reset persists and Arabic mobile st
     ).ok(),
   ).toBeTruthy();
   await page.goto("/");
-  await expect(page.locator("[data-dashboard-widget]")).toHaveCount(7);
+  await expect(page.locator("[data-dashboard-widget]")).toHaveCount(8);
   await page
     .getByRole("button", { name: "Customize dashboard", exact: true })
     .click();
@@ -42,7 +42,7 @@ test("dashboard widget visibility order save/reset persists and Arabic mobile st
     .evaluate((e) => String([...e.parentElement!.children].indexOf(e)));
   expect(order).toBe("3");
   await page.reload();
-  await expect(page.locator("[data-dashboard-widget]")).toHaveCount(6);
+  await expect(page.locator("[data-dashboard-widget]")).toHaveCount(7);
   expect(
     await page
       .locator("[data-dashboard-widget=activity]")
@@ -59,7 +59,7 @@ test("dashboard widget visibility order save/reset persists and Arabic mobile st
   await page
     .getByRole("button", { name: "Reset to defaults", exact: true })
     .click();
-  await expect(page.locator("[data-dashboard-widget]")).toHaveCount(7);
+  await expect(page.locator("[data-dashboard-widget]")).toHaveCount(8);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.getByRole("button", { name: "العربية", exact: true }).click();
   await page
@@ -96,5 +96,5 @@ test("dashboard widget visibility order save/reset persists and Arabic mobile st
   await page
     .getByRole("button", { name: "رجّع الافتراضي", exact: true })
     .click();
-  await expect(page.locator("[data-dashboard-widget]")).toHaveCount(7);
+  await expect(page.locator("[data-dashboard-widget]")).toHaveCount(8);
 });

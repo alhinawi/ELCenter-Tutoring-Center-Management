@@ -864,6 +864,7 @@ function Dashboard({ t, api, go }: { t: T; api: Api; go: (t: Tab) => void }) {
     L = (e: string, a: string) => (ar ? a : e);
   const labels: Record<string, string> = {
     welcome: L("Welcome", "الترحيب"),
+    active_records: L("Current active records", "السجلات النشطة الحالية"),
     branch_stats: t.activeBranches,
     team_stats: t.team,
     capacity_stats: t.totalCapacity,
@@ -875,7 +876,46 @@ function Dashboard({ t, api, go }: { t: T; api: Api; go: (t: Tab) => void }) {
   const branches: Row[] = data.branches,
     active = branches.filter((b) => b.status === "active");
   const visible = (id: string) => data.widgets.includes(id);
+  const recordLabels: Record<string, string> = {
+    students: L("Active students", "الطلاب النشطين"),
+    teachers: L("Active teachers", "المدرسين النشطين"),
+    courses: L("Active courses", "الكورسات النشطة"),
+    groups: L("Active groups", "المجموعات النشطة"),
+    employees: L("Active employees", "الموظفين النشطين"),
+  };
   const widgets: Record<string, ReactNode> = {
+    active_records: data.record_counts && (
+      <div
+        data-dashboard-widget="active_records"
+        className="col-span-2 xl:col-span-12"
+      >
+        <Card className="p-5">
+          <h2 className="font-semibold">{labels.active_records}</h2>
+          <p className="mt-3 text-xs leading-6 text-slate-500">
+            {L(
+              "Current active profile/catalog records in your assigned branch scope, including any saved demo rows. Teacher counts follow their primary branch, not additional teaching assignments. Employee count excludes onboarding and on-leave records. Not historical enrollment, class attendance or retention. Only permitted modules appear.",
+              "سجلات الملفات والكتالوج النشطة حاليا في نطاق فرعك، بما فيها أي سجلات تجريبية محفوظة. المدرسين حسب الفرع الأساسي مش التكليفات الإضافية. عدد الموظفين مش شامل التعيين الجديد أو الإجازة. دي مش أعداد تسجيل تاريخي أو حضور أو احتفاظ. بتظهر الأقسام المسموح لك بيها بس.",
+            )}
+          </p>
+          <dl className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-5">
+            {Object.entries(data.record_counts.counts).map(([key, value]) => (
+              <div
+                key={key}
+                className="rounded-xl border border-slate-200 p-4 dark:border-slate-700"
+              >
+                <dt className="text-xs text-slate-500">{recordLabels[key]}</dt>
+                <dd className="mt-3 text-2xl font-semibold" dir="ltr">
+                  {Number(value).toLocaleString("en-US")}
+                </dd>
+              </div>
+            ))}
+          </dl>
+          <p className="mt-3 text-xs text-slate-500" dir="ltr">
+            {new Date(data.record_counts.generated_at * 1000).toISOString()}
+          </p>
+        </Card>
+      </div>
+    ),
     welcome: (
       <section
         data-dashboard-widget="welcome"

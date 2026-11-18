@@ -1,3 +1,4 @@
+import { dashboardRecordCounts } from "./dashboard-records";
 import { registerGroupRoster } from "./group-roster";
 import {
   dashboardPreferences,
@@ -564,6 +565,7 @@ app.get("/api/dashboard", async (c) => {
     ...(members ? { members: members.value } : {}),
     ...(roles ? { roles: roles.value } : {}),
     ...(await dashboardPreferences(c)),
+    ...(await dashboardRecordCounts(c)),
     activity,
   });
 });

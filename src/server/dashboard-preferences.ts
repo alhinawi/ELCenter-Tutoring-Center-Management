@@ -1,3 +1,4 @@
+import { canViewRecordCounts } from "./dashboard-records";
 import type { Hono } from "hono";
 import { z } from "zod";
 import { permit, audit, type AppContext } from "./app";
@@ -10,6 +11,7 @@ export const dashboardWidgets = [
   "role_stats",
   "branch_network",
   "activity",
+  "active_records",
 ] as const;
 export async function dashboardPreferences(c: AppContext) {
   const a = c.get("actor");
@@ -19,13 +21,15 @@ export async function dashboardPreferences(c: AppContext) {
     .bind(a.org_id, a.user_id)
     .first<{ widgets_json: string }>();
   const allowed = dashboardWidgets.filter((w) =>
-    w === "team_stats"
-      ? a.permissions.includes("users:view")
-      : w === "role_stats"
-        ? a.permissions.includes("roles:view")
-        : w === "activity"
-          ? a.permissions.includes("audit:view")
-          : true,
+    w === "active_records"
+      ? canViewRecordCounts(a.permissions)
+      : w === "team_stats"
+        ? a.permissions.includes("users:view")
+        : w === "role_stats"
+          ? a.permissions.includes("roles:view")
+          : w === "activity"
+            ? a.permissions.includes("audit:view")
+            : true,
   );
   const widgets = saved
     ? z.array(z.enum(dashboardWidgets)).parse(JSON.parse(saved.widgets_json))
@@ -48,7 +52,7 @@ export function registerDashboardPreferences(app: Hono<any>) {
         .object({
           widgets: z
             .array(z.enum(dashboardWidgets))
-            .max(7)
+            .max(dashboardWidgets.length)
             .refine(
               (w) => new Set(w).size === w.length,
               "Duplicate widgets are not allowed",

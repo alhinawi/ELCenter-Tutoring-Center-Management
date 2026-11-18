@@ -78,7 +78,7 @@ test("dashboard preferences are membership-private, validated, audited and filte
     "defaults show only authorized widgets and omit unpermitted statistics",
     async () => {
       const full = (await call("/dashboard")).j;
-      assert.equal(full.widgets.length, 7);
+      assert.equal(full.widgets.length, 8);
       assert.equal(full.customized, false);
       assert.equal(typeof full.members, "number");
       assert.equal(typeof full.roles, "number");
@@ -200,7 +200,7 @@ test("dashboard preferences are membership-private, validated, audited and filte
       assert.equal((await call(path, "DELETE")).r.status, 200);
       const reset = (await call(path)).j;
       assert.equal(reset.customized, false);
-      assert.equal(reset.widgets.length, 7);
+      assert.equal(reset.widgets.length, 8);
       const log = sql(
         "SELECT after_json FROM el_audit WHERE org_id=? AND entity='dashboard_preferences' AND action='update' ORDER BY created_at LIMIT 1",
         org,
@@ -228,7 +228,7 @@ test("dashboard preferences are membership-private, validated, audited and filte
         false,
       );
       await call(path, "PUT", { widgets: ["branch_network"] }, foreign);
-      assert.equal((await call(path)).j.widgets.length, 7);
+      assert.equal((await call(path)).j.widgets.length, 8);
       raw
         .prepare("UPDATE el_memberships SET status='suspended' WHERE id=?")
         .run(membership);
