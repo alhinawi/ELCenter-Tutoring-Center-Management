@@ -1,3 +1,4 @@
+import { registerExamResultSheet } from "./exam-result-sheet";
 import { dashboardRecordCounts } from "./dashboard-records";
 import { registerGroupRoster } from "./group-roster";
 import {
@@ -938,6 +939,7 @@ app.get("/api/audit", async (c) => {
 });
 registerStudentCard(app);
 registerGroupRoster(app);
+registerExamResultSheet(app);
 registerAcademic(app);
 registerScheduling(app);
 registerAssessment(app);
