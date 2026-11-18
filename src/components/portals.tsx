@@ -458,9 +458,18 @@ export function Portal({
               <>
                 <div className="grid gap-4 sm:grid-cols-3">
                   {[
-                    [L("Assigned groups", "المجموعات"), home.groups.length],
-                    [L("Upcoming sessions", "الحصص"), home.sessions.length],
-                    [L("Assessments", "الامتحانات"), home.exams.length],
+                    [
+                      L("Group preview (up to 100)", "معاينة مجموعات (لحد100)"),
+                      home.groups.length,
+                    ],
+                    [
+                      L("Session preview (up to 100)", "معاينة حصص (لحد100)"),
+                      home.sessions.length,
+                    ],
+                    [
+                      L("Exam preview (up to 100)", "معاينة امتحانات (لحد100)"),
+                      home.exams.length,
+                    ],
                   ].map(([label, n]) => (
                     <Card className="p-5" key={label}>
                       <p className="text-sm text-slate-500">{label}</p>
@@ -469,31 +478,15 @@ export function Portal({
                   ))}
                 </div>
                 <Panel title={L("Your timetable", "جدولك")}>
-                  {home.sessions.length ? (
-                    <Table
-                      heads={[
-                        L("Group", "المجموعة"),
-                        L("When", "الموعد"),
-                        L("Room", "القاعة"),
-                        L("Status", "الحالة"),
-                        L("Attendance", "الحضور"),
-                      ]}
-                      rows={home.sessions.map((s: Row) => [
-                        s.group_name,
-                        date(s.starts_at),
-                        s.classroom_name,
-                        <Badge value={s.status} ar={ar} />,
-                        <AttendanceButton {...p} id={s.id} />,
-                      ])}
-                    />
-                  ) : (
-                    <Empty>
-                      {L(
-                        "No sessions in this period.",
-                        "مفيش حصص في الفترة دي.",
-                      )}
-                    </Empty>
-                  )}
+                  <FamilySchedule
+                    key={home.profile.id}
+                    id={home.profile.id}
+                    name={home.profile.name}
+                    api={p.api}
+                    ar={ar}
+                    teacher
+                    attendance={(id) => <AttendanceButton {...p} id={id} />}
+                  />
                 </Panel>
                 <Panel
                   title={L("Leave requests", "طلبات الإجازة")}

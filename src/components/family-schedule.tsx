@@ -1,16 +1,20 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Button, Field, Input } from "./ui";
 export function FamilySchedule({
   id,
   name,
   api,
   ar,
+  teacher = false,
+  attendance,
 }: {
   id: string;
   name: string;
   api: (p: string) => Promise<any>;
   ar: boolean;
+  teacher?: boolean;
+  attendance?: (id: string) => ReactNode;
 }) {
   const L = (e: string, a: string) => (ar ? a : e),
     [applied, setApplied] = useState<{ from: string; to: string } | null>(null),
@@ -30,7 +34,9 @@ export function FamilySchedule({
     setError("");
     setDirty(false);
     api(
-      `/portal/students/${id}/schedule` +
+      (teacher
+        ? "/portal/teacher/schedule"
+        : `/portal/students/${id}/schedule`) +
         (applied ? `?from=${applied.from}&to=${applied.to}` : ""),
     )
       .then((r) => {
@@ -50,7 +56,7 @@ export function FamilySchedule({
     return () => {
       request.current++;
     };
-  }, [id, applied, version]);
+  }, [id, teacher, applied, version]);
   function edit() {
     request.current++;
     setData([]);
@@ -66,14 +72,23 @@ export function FamilySchedule({
   return (
     <section
       className="space-y-4 p-5"
-      aria-label={L("Family schedule window", "فترة جدول الأسرة")}
+      aria-label={
+        teacher
+          ? L("Teacher schedule window", "فترة جدول المدرّس")
+          : L("Family schedule window", "فترة جدول الأسرة")
+      }
     >
       <p className="text-xs leading-6 text-slate-500">
         <strong>{name}</strong> ·{" "}
-        {L(
-          "Sessions in currently active enrollments only, including replacement teachers/rooms. Canceled/completed sessions remain labeled, not hidden. Both dates are inclusive in the organization timezone. Default yesterday through120 days ahead, up to370 calendar days and1000 complete sessions per request. Exceeding the limit rejects the whole window; narrow dates. Not an attendance record.",
-          "حصص التسجيلات النشطة حاليا بس، بما فيها المدرّسين والقاعات البديلة. الحصص الملغية والمكتملة ظاهرة بحالتها. التاريخين شاملين بتوقيت المؤسسة. الافتراضي من إمبارح لحد120 يوم قدام، بحد370 يوم تقويمي و1000 حصة كاملة للطلب. لو العدد أكبر الفترة كلها بترفض؛ ضيّق التواريخ. ده مش سجل حضور.",
-        )}
+        {teacher
+          ? L(
+              "Only sessions assigned to your currently linked teacher profile, within your membership branch scope. Group defaults do not grant access to another teacher's replacement session. Canceled/completed sessions stay labeled. Both dates are inclusive in organization time. Default seven days ago through 90 days ahead; maximum 370 calendar days and 1000 complete sessions. Exceeding the cap rejects the whole window, narrow dates. Attendance actions recheck assignment separately.",
+              "الحصص المسندة لملف المدرّس المرتبط بحسابك حاليا بس، في نطاق فرع عضويتك. المدرّس الافتراضي للمجموعة مش بيديك حصة بديل مسندة لمدرّس تاني. الملغي والمكتمل ظاهر بحالته. التاريخين شاملين بتوقيت المؤسسة. الافتراضي من7 أيام فاتوا لحد90 يوم قدام؛ بحد370 يوم تقويمي و1000 حصة كاملة. لو العدد أكبر الفترة كلها بترفض؛ ضيّق التواريخ. إجراءات الحضور بتراجع التكليف بشكل مستقل.",
+            )
+          : L(
+              "Sessions in currently active enrollments only, including replacement teachers/rooms. Canceled/completed sessions remain labeled, not hidden. Both dates are inclusive in the organization timezone. Default yesterday through120 days ahead, up to370 calendar days and 1000 complete sessions per request. Exceeding the limit rejects the whole window; narrow dates. Not an attendance record.",
+              "حصص التسجيلات النشطة حاليا بس، بما فيها المدرّسين والقاعات البديلة. الحصص الملغية والمكتملة ظاهرة بحالتها. التاريخين شاملين بتوقيت المؤسسة. الافتراضي من إمبارح لحد120 يوم قدام، بحد370 يوم تقويمي و1000 حصة كاملة للطلب. لو العدد أكبر الفترة كلها بترفض؛ ضيّق التواريخ. ده مش سجل حضور.",
+            )}
       </p>
       <form
         className="grid gap-3 sm:grid-cols-2"
@@ -162,13 +177,14 @@ export function FamilySchedule({
               }).format(r.starts_at * 1000)}
             </p>
             <p className="text-xs">{status[r.status] ?? r.status}</p>
+            {attendance?.(r.id)}
           </article>
         ))}
       </div>
       <p className="text-xs text-slate-500">
         {L(
-          "A live schedule, not a saved or externally delivered itinerary. Apply again to refresh; switching children resets the dates. Session start determines the selected calendar day.",
-          "جدول مباشر مش نسخة محفوظة أو ميعاد مبعوت خارجيا. طبّق تاني للتحديث؛ اختيار طفل تاني بيبدأ التواريخ من جديد. بداية الحصة هي اللي بتحدد اليوم المختار.",
+          "A live schedule, not a saved or externally delivered itinerary. Apply again to refresh; switching profiles resets dates. Session start determines the selected calendar day.",
+          "جدول مباشر مش نسخة محفوظة أو ميعاد مبعوت خارجيا. طبّق تاني للتحديث؛ تغيير الملف بيبدأ التواريخ من جديد. بداية الحصة هي اللي بتحدد اليوم المختار.",
         )}
       </p>
     </section>

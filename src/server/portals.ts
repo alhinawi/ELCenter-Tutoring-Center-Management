@@ -1,3 +1,4 @@
+import { teacherSchedule } from "./teacher-schedule";
 import { familySchedule } from "./family-schedule";
 import { familyInvoices } from "./family-invoices";
 import { familyAttendance } from "./family-attendance";
@@ -291,6 +292,7 @@ export function registerPortals(app: Hono<any>) {
       ).results,
     });
   });
+  app.get("/api/portal/teacher/schedule", teacherSchedule);
   app.get("/api/portal/teacher", async (c: AppContext) => {
     const a = c.get("actor"),
       link = await identity(c);

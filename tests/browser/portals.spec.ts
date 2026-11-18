@@ -293,9 +293,11 @@ test("student, guardian and teacher use linked portals and real coursework", asy
   await tp
     .getByRole("button", { name: "Submit correction request", exact: true })
     .click();
-  await expect(tp.getByRole("status")).toContainText(
-    "Request submitted for independent review.",
-  );
+  await expect(
+    tp
+      .getByRole("status")
+      .filter({ hasText: "Request submitted for independent review." }),
+  ).toContainText("Request submitted for independent review.");
   await tp.screenshot({
     path: "/downloads/elcenter-portal-correction-teacher.png",
     fullPage: true,
