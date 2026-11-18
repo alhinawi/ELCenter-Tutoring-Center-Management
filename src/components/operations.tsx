@@ -1,4 +1,5 @@
 "use client";
+import { ProfilePhoto } from "./profile-photo";
 import { useModalFocus } from "./modal-focus";
 import { RecordCustomFields } from "./custom-fields";
 import { ZeroPayrollClosure } from "./zero-payroll";
@@ -1291,6 +1292,13 @@ export default function Operations({
                       </Button>
                     ))}
                   </div>
+                  <ProfilePhoto
+                    api={api}
+                    ar={ar}
+                    entity="employees"
+                    id={detail.id}
+                    editable={allowed("hr", "edit")}
+                  />
                   <RecordCustomFields
                     api={api}
                     ar={ar}

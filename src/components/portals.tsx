@@ -1,4 +1,5 @@
 "use client";
+import { ProfilePhoto } from "./profile-photo";
 import { useModalFocus } from "./modal-focus";
 import { InvoicePrintHeader, InvoicePrintFooter } from "./invoice-print";
 import { Support, Documents } from "./resources";
@@ -344,6 +345,14 @@ export function Portal({
                 </label>
               )}
             </div>
+            {teacher && mode === "home" && (
+              <ProfilePhoto
+                api={p.api}
+                ar={ar}
+                entity="teachers"
+                id={home.profile.id}
+              />
+            )}
             {mode === "support" ? (
               <Support
                 {...p}
@@ -580,6 +589,12 @@ export function Portal({
                 <Card className="p-5">
                   <div className="flex flex-wrap justify-between gap-3">
                     <div>
+                      <ProfilePhoto
+                        api={p.api}
+                        ar={ar}
+                        entity="students"
+                        id={family.student.id}
+                      />
                       <h2 className="font-semibold">{family.student.name}</h2>
                       <p className="mt-2 text-sm text-slate-500">
                         <bdi>{family.student.code}</bdi> ·{" "}
