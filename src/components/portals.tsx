@@ -892,11 +892,13 @@ export function Portal({
               </h3>
               <Table
                 heads={[
+                  L("Receipt number / ID", "رقم / معرّف الإيصال"),
                   L("Date", "التاريخ"),
                   L("Type", "النوع"),
                   L("Amount", "المبلغ"),
                 ]}
                 rows={invoice.payments.map((r: Row) => [
+                  r.receipt_number ?? r.id,
                   r.date,
                   r.kind === "receipt"
                     ? L("Receipt", "إيصال قبض")

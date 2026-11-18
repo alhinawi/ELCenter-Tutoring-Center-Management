@@ -1,4 +1,5 @@
 import { registerProfilePhotos } from "./profile-photos";
+import { registerReceiptNumbering } from "./receipt-numbering";
 import { registerInvoiceNumbering } from "./invoice-numbering";
 import { registerInvoicePrint } from "./invoice-print";
 import { registerCoursePackages } from "./course-packages";
@@ -116,6 +117,14 @@ app.onError((e, c) => {
       {
         error:
           "Course package could not be saved. Check current courses, branch and immutable package terms.",
+      },
+      409,
+    );
+  if (/Receipt sequence/.test(String(e)))
+    return c.json(
+      {
+        error:
+          "Receipt numbering changed or is exhausted. Refresh settings or ask headquarters. No receipt was recorded.",
       },
       409,
     );
@@ -891,6 +900,7 @@ registerAssessment(app);
 registerFinance(app);
 registerInvoicePrint(app);
 registerInvoiceNumbering(app);
+registerReceiptNumbering(app);
 registerFinancePlans(app);
 registerOperations(app);
 registerPortals(app);

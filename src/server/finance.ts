@@ -414,7 +414,7 @@ export function registerFinance(app: Hono<any>) {
       .bind(i.id, a.org_id)
       .all();
     const payments = await c.env.DB.prepare(
-      "SELECT * FROM el_payments WHERE invoice_id=? AND org_id=? ORDER BY created_at,id",
+      "SELECT p.*,n.number receipt_number FROM el_payments p LEFT JOIN el_receipt_numbers n ON n.org_id=p.org_id AND n.payment_id=p.id WHERE p.invoice_id=? AND p.org_id=? ORDER BY p.created_at,p.id",
     )
       .bind(i.id, a.org_id)
       .all<Record<string, any>>();
@@ -540,17 +540,25 @@ export function registerFinance(app: Hono<any>) {
       i = await entity(c, "invoices", c.req.param("id")!);
     assert(i.status === "issued", 409, "Invoice is not issued");
     const existing = await c.env.DB.prepare(
-      "SELECT id,invoice_id,amount FROM el_payments WHERE org_id=? AND idempotency_key=?",
+      "SELECT p.id,p.invoice_id,p.amount,p.date,p.method,p.reference,n.number receipt_number FROM el_payments p LEFT JOIN el_receipt_numbers n ON n.org_id=p.org_id AND n.payment_id=p.id WHERE p.org_id=? AND p.idempotency_key=?",
     )
       .bind(c.get("actor").org_id, d.idempotency_key)
       .first<Record<string, any>>();
     if (existing) {
       assert(
-        existing.invoice_id === i.id && existing.amount === d.amount,
+        existing.invoice_id === i.id &&
+          existing.amount === d.amount &&
+          existing.date === d.date &&
+          existing.method === d.method &&
+          existing.reference === d.reference,
         409,
         "Idempotency key was used for another payment",
       );
-      return c.json({ id: existing.id, replayed: true });
+      return c.json({
+        id: existing.id,
+        receipt_number: existing.receipt_number,
+        replayed: true,
+      });
     }
     assert(d.date >= i.date, 400, "Payment cannot precede the invoice");
     const ac = await accounts(c),
@@ -592,7 +600,12 @@ export function registerFinance(app: Hono<any>) {
       ),
       audit(c, "payment", id, "receipt", null, { ...d, invoice_id: i.id }),
     ]);
-    return c.json({ id }, 201);
+    const number = await c.env.DB.prepare(
+      "SELECT number FROM el_receipt_numbers WHERE org_id=? AND payment_id=?",
+    )
+      .bind(i.org_id, id)
+      .first<{ number: string }>();
+    return c.json({ id, receipt_number: number?.number ?? null }, 201);
   });
   app.post("/api/payments/:id/refund", async (c: AppContext) => {
     permit(c, "finance", "approve");
@@ -613,7 +626,11 @@ export function registerFinance(app: Hono<any>) {
         409,
         "Idempotency key already used",
       );
-      return c.json({ id: existing.id, replayed: true });
+      return c.json({
+        id: existing.id,
+        receipt_number: existing.receipt_number,
+        replayed: true,
+      });
     }
     const ac = await accounts(c),
       id = uid(),
