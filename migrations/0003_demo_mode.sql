@@ -1,0 +1,18 @@
+ALTER TABLE el_organizations ADD COLUMN demo_enabled INTEGER NOT NULL DEFAULT 0 CHECK(demo_enabled IN (0,1));
+ALTER TABLE el_branches ADD COLUMN is_demo INTEGER NOT NULL DEFAULT 0 CHECK(is_demo IN (0,1));
+ALTER TABLE el_students ADD COLUMN is_demo INTEGER NOT NULL DEFAULT 0 CHECK(is_demo IN (0,1));
+ALTER TABLE el_guardians ADD COLUMN is_demo INTEGER NOT NULL DEFAULT 0 CHECK(is_demo IN (0,1));
+ALTER TABLE el_teachers ADD COLUMN is_demo INTEGER NOT NULL DEFAULT 0 CHECK(is_demo IN (0,1));
+ALTER TABLE el_teacher_branches ADD COLUMN is_demo INTEGER NOT NULL DEFAULT 0 CHECK(is_demo IN (0,1));
+ALTER TABLE el_courses ADD COLUMN is_demo INTEGER NOT NULL DEFAULT 0 CHECK(is_demo IN (0,1));
+ALTER TABLE el_course_branches ADD COLUMN is_demo INTEGER NOT NULL DEFAULT 0 CHECK(is_demo IN (0,1));
+ALTER TABLE el_classrooms ADD COLUMN is_demo INTEGER NOT NULL DEFAULT 0 CHECK(is_demo IN (0,1));
+ALTER TABLE el_groups ADD COLUMN is_demo INTEGER NOT NULL DEFAULT 0 CHECK(is_demo IN (0,1));
+ALTER TABLE el_enrollments ADD COLUMN is_demo INTEGER NOT NULL DEFAULT 0 CHECK(is_demo IN (0,1));
+ALTER TABLE el_student_guardians ADD COLUMN is_demo INTEGER NOT NULL DEFAULT 0 CHECK(is_demo IN (0,1));
+ALTER TABLE el_transfers ADD COLUMN is_demo INTEGER NOT NULL DEFAULT 0 CHECK(is_demo IN (0,1));
+DROP TRIGGER el_teacher_home;
+CREATE TRIGGER el_teacher_home AFTER INSERT ON el_teachers BEGIN INSERT INTO el_teacher_branches(org_id,teacher_id,branch_id,is_demo) VALUES(NEW.org_id,NEW.id,NEW.branch_id,NEW.is_demo); END;
+DROP TRIGGER el_course_home;
+CREATE TRIGGER el_course_home AFTER INSERT ON el_courses BEGIN INSERT INTO el_course_branches(org_id,course_id,branch_id,price,is_demo) VALUES(NEW.org_id,NEW.id,NEW.branch_id,NEW.price,NEW.is_demo); END;
+CREATE INDEX el_demo_students ON el_students(org_id,is_demo);

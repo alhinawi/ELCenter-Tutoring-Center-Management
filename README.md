@@ -2,7 +2,7 @@
 
 A bilingual, multi-branch education operations platform. Next.js and Tailwind on the frontend, Hono Pages Functions and a relational Cloudflare D1 database on the server.
 
-## Working release: Phase 1
+## Working release: Foundation and academic core
 
 - Organization creation and real email/password authentication, salted PBKDF2 hashes, hashed sessions, HttpOnly cookies and CSRF checks.
 - 18 seeded roles, configurable custom roles and granular server-checked permissions. Branch-scoped memberships and organization isolation.
@@ -11,6 +11,11 @@ A bilingual, multi-branch education operations platform. Next.js and Tailwind on
 - Organization settings, live dashboard counts and before/after audit history.
 - English and Egyptian Arabic, RTL, dark mode, self-hosted IBM Plex Sans Arabic and local real photographs.
 - Private fictional demo workspaces. No shared privileged demo password.
+
+- Student/guardian relationships, teacher and course branch assignments, classrooms, groups and capacity-safe enrollments/waiting lists.
+- Approval-based student branch transfers preserve academic history; group transfers are atomic.
+- Searchable, sortable, paginated records, validated Excel imports (up to 160 rows per atomic import), spreadsheet-safe CSV exports and course duplication.
+- Admin Demo mode switch adds explicitly flagged fictional records. Disabling deletes only flagged records in one transaction. Real references block cleanup instead of changing or deleting real data.
 
 This is a phased implementation, **not yet a complete enterprise ERP**. See [the delivery plan](docs/ROADMAP.md) for the remaining phases. Do not enter real student or financial data until the remaining security and recovery work is complete.
 
