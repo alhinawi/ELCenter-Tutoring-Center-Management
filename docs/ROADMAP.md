@@ -82,3 +82,7 @@ Fixed-price, currency-snapshotted packages contain 2–10 active courses assigne
 ## Current release boundary
 
 The original request remains larger than the merged core. No production or commercial-readiness sign-off is implied. Remaining work includes account recovery/verification and Google sign-in, approved external providers, production backup scheduling and restore drills, live deployment/load/security checks, tax and editable print-template settings, advances/loans, deeper historical cohort analytics, configurable rule coverage and the detailed workflow limits recorded above. The development branch and real CI tests are not proof of the production database state.
+
+## Staff reminder rules increment
+
+Three individually opt-in rules add lead follow-ups to the assigned permitted user, upcoming contract expiration to scoped HR users, and monthly low-stock notices to scoped inventory users. Headquarters configures the contract window from 1–90 days. Current permissions, status, preferences and branch scope are rechecked when storing the notification. The 100-recipient cap excludes prior event keys before limiting. This is in-app delivery only, not external messaging, an automatic purchasing system or the remaining low-attendance/upcoming-exam/retention/recurring-invoice automation scope. Stock checks require an existing balance, and contract alerts do not repeat for an unchanged end date. The separate Worker deployment remains an operator gate.

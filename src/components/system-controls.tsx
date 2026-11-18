@@ -338,8 +338,8 @@ export function SystemControls({
               <div className="space-y-5">
                 <p className="text-sm leading-7 text-slate-500">
                   {L(
-                    "Only in-app reminders: expiring documents to their uploader, due invoices/library returns to linked families, and saved report digests. No email, SMS or WhatsApp is sent. Up to 100 records per kind each run. A separately deployed scheduler is required for automatic runs.",
-                    "تذكيرات داخل التطبيق بس: انتهاء المستندات للي رفعها، الفواتير والكتب المستحقة للأسر المرتبطة، وملخصات التقارير المحفوظة. مفيش إرسال بريد أو SMS أو واتساب. لحد 100 سجل من كل نوع في التشغيل. التشغيل التلقائي محتاج نشر خدمة الجدولة بشكل منفصل.",
+                    "Only in-app reminders: expiring documents to their uploader, due invoices/library returns to linked families, assigned lead follow-ups, contract expiry to HR, low stock to inventory staff, and saved report digests. No email, SMS or WhatsApp is sent. Up to 100 records per kind each run. A separately deployed scheduler is required for automatic runs.",
+                    "تذكيرات داخل التطبيق بس: انتهاء المستندات للي رفعها، الفواتير والكتب المستحقة للأسر المرتبطة، متابعة العملاء للمسؤول، انتهاء العقود للموارد البشرية، المخزون المنخفض للمخازن، وملخصات التقارير المحفوظة. مفيش إرسال بريد أو SMS أو واتساب. لحد 100 سجل من كل نوع في التشغيل. التشغيل التلقائي محتاج نشر خدمة الجدولة بشكل منفصل.",
                   )}
                 </p>
                 <label className="flex items-center gap-3 text-sm">
@@ -360,6 +360,89 @@ export function SystemControls({
                     "اسمح للجدولة بمعالجة المؤسسة دي",
                   )}
                 </label>
+                <form
+                  className="space-y-3 rounded-xl border border-slate-200 p-4 dark:border-slate-700"
+                  key={JSON.stringify(jobs.rules)}
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    const fd = new FormData(e.currentTarget);
+                    void act(
+                      "/system/automation",
+                      {
+                        enabled: !!jobs.enabled,
+                        lead_followups: fd.has("lead_followups"),
+                        contract_expiry: fd.has("contract_expiry"),
+                        low_stock: fd.has("low_stock"),
+                        contract_days: Number(fd.get("contract_days")),
+                      },
+                      "PUT",
+                    );
+                  }}
+                >
+                  <h3 className="font-semibold">
+                    {L("Staff reminder rules", "قواعد تذكيرات الموظفين")}
+                  </h3>
+                  {(
+                    [
+                      [
+                        "lead_followups",
+                        L("Assigned lead follow-ups", "متابعة العملاء للمسؤول"),
+                      ],
+                      [
+                        "contract_expiry",
+                        L(
+                          "Contract expiry for HR",
+                          "انتهاء العقود للموارد البشرية",
+                        ),
+                      ],
+                      [
+                        "low_stock",
+                        L(
+                          "Low stock for inventory staff",
+                          "المخزون المنخفض لمسؤولي المخازن",
+                        ),
+                      ],
+                    ] as const
+                  ).map(([key, label]) => (
+                    <label
+                      key={key}
+                      className="flex items-center gap-3 text-sm"
+                    >
+                      <input
+                        type="checkbox"
+                        name={key}
+                        defaultChecked={!!jobs.rules[key]}
+                        disabled={busy}
+                      />
+                      {label}
+                    </label>
+                  ))}
+                  <Field
+                    label={L(
+                      "Contract notice days (1–90)",
+                      "التنبيه قبل انتهاء العقد بالأيام (1–90)",
+                    )}
+                  >
+                    <Input
+                      name="contract_days"
+                      type="number"
+                      min={1}
+                      max={90}
+                      step={1}
+                      required
+                      defaultValue={jobs.rules.contract_days}
+                    />
+                  </Field>
+                  <p className="text-xs leading-6 text-slate-500">
+                    {L(
+                      "Staff rules default off. Lead reminders are once per due date and recipient. Contracts are once per end date and recipient. Low stock is once per branch, item and recipient each month, including zero at a zero reorder level. Only existing stock balance records are checked. Saving rules does not run them. Manual runs also respect these rules.",
+                      "القواعد دي مقفولة افتراضياً. متابعة العميل مرة لكل ميعاد ومسؤول، والعقد مرة لكل تاريخ انتهاء ومستلم. المخزون مرة لكل فرع وصنف ومستلم في الشهر، حتى الصفر لو حد الطلب صفر. الفحص لأرصدة المخزون الموجودة بس. حفظ القواعد مش بيشغلها. التشغيل اليدوي بيحترم القواعد دي كمان.",
+                    )}
+                  </p>
+                  <Button type="submit" disabled={busy}>
+                    {L("Save reminder rules", "احفظ قواعد التذكير")}
+                  </Button>
+                </form>
                 <Button
                   disabled={busy}
                   onClick={() => void act("/system/automation/run", {})}
