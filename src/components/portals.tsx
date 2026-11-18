@@ -1,7 +1,8 @@
 "use client";
 import { Support, Documents } from "./resources";
 import { Temporal } from "@js-temporal/polyfill";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState, useRef, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import {
   BookOpen,
   ArrowLeft,
@@ -72,6 +73,7 @@ const statusNames: Record<string, [string, string]> = {
   article: ["Article", "شرح مكتوب"],
   video: ["Video", "فيديو"],
   live: ["Live class", "حصة مباشرة"],
+  paused: ["Paused", "متوقف"],
   low: ["Low", "منخفضة"],
   normal: ["Normal", "عادية"],
   high: ["High", "مرتفعة"],
@@ -903,13 +905,61 @@ export function Dialog({
   close: () => void;
   children: ReactNode;
 }) {
-  return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/50 p-3 md:p-8">
+  const ref = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const previous = document.activeElement as HTMLElement | null,
+      overflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    ref.current
+      ?.querySelector<HTMLElement>(
+        "button,input,select,textarea,[tabindex='0']",
+      )
+      ?.focus();
+    const handler = (e: KeyboardEvent) => {
+      const dialogs = document.querySelectorAll('[role="dialog"]');
+      if (dialogs[dialogs.length - 1] !== ref.current) return;
+      if (e.key === "Escape") {
+        e.stopPropagation();
+        close();
+      }
+      if (e.key === "Tab") {
+        const items = Array.from(
+          ref.current?.querySelectorAll<HTMLElement>(
+            'button:not(:disabled),input:not(:disabled),select:not(:disabled),textarea:not(:disabled),a[href],[tabindex="0"]',
+          ) ?? [],
+        ).filter((el) => el.getClientRects().length);
+        const first = items[0],
+          last = items[items.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last?.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first?.focus();
+        }
+      }
+    };
+    document.addEventListener("keydown", handler);
+    return () => {
+      document.removeEventListener("keydown", handler);
+      document.body.style.overflow = overflow;
+      if (previous?.isConnected) previous.focus();
+    };
+  }, []);
+  if (typeof document === "undefined") return null;
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[80] flex items-start justify-center overflow-y-auto bg-slate-950/50 p-3 md:p-8"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) close();
+      }}
+    >
       <section
+        ref={ref}
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className="mx-auto max-w-3xl rounded-2xl bg-white p-5 shadow-xl md:p-7 dark:bg-slate-900"
+        className="max-h-[92dvh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white p-5 shadow-xl md:p-7 dark:bg-slate-900"
       >
         <div className="mb-5 flex items-center justify-between gap-3">
           <h2 className="text-xl font-semibold">{title}</h2>
@@ -923,7 +973,8 @@ export function Dialog({
         </div>
         {children}
       </section>
-    </div>
+    </div>,
+    document.body,
   );
 }
 export function ActionForm({

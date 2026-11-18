@@ -31,7 +31,12 @@ export function sqliteDatabase(path = ":memory:") {
       raw.exec("BEGIN IMMEDIATE");
       try {
         const out = [];
-        for (const x of list) out.push(await x.run());
+        for (const x of list)
+          out.push(
+            x instanceof Stmt && /^\s*(SELECT|WITH)\b/i.test(x.sql)
+              ? await x.all()
+              : await x.run(),
+          );
         raw.exec("COMMIT");
         return out;
       } catch (e) {

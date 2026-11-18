@@ -1,3 +1,5 @@
+import { registerMfa, verifyMfa } from "./mfa";
+import { registerSystem } from "./system";
 import { registerResourceDemo } from "./demo-resources";
 import { registerReports } from "./reports";
 import { registerInventory } from "./inventory";
@@ -185,18 +187,29 @@ async function createSession(
 ) {
   const token = uid() + uid();
   const csrf = uid();
-  await c.env.DB.prepare(
+  const statement = c.env.DB.prepare(
     "INSERT INTO el_sessions(id,user_id,membership_id,csrf,expires_at,user_agent) VALUES(?,?,?,?,?,?)",
-  )
-    .bind(
-      await digest(token),
-      userId,
-      membershipId,
-      csrf,
-      now() + 60 * 60 * 12,
+  ).bind(
+    await digest(token),
+    userId,
+    membershipId,
+    csrf,
+    now() + 60 * 60 * 12,
+    (c.req.header("user-agent") ?? "").slice(0, 300),
+  );
+  await c.env.DB.batch([
+    statement,
+    c.env.DB.prepare(
+      "INSERT INTO el_login_history(id,org_id,user_id,branch_id,user_agent,ip,created_at) SELECT ?,org_id,user_id,branch_id,?,?,? FROM el_memberships WHERE id=? AND user_id=?",
+    ).bind(
+      uid(),
       (c.req.header("user-agent") ?? "").slice(0, 300),
-    )
-    .run();
+      (c.req.header("cf-connecting-ip") ?? "").slice(0, 100),
+      now(),
+      membershipId,
+      userId,
+    ),
+  ]);
   setCookie(c, "elcenter_session", token, {
     httpOnly: true,
     secure:
@@ -335,7 +348,11 @@ app.post("/api/auth/demo", async (c) => {
 app.post("/api/auth/login", async (c) => {
   await rate(c, "login");
   const d = z
-    .object({ email, password: z.string().min(1).max(128) })
+    .object({
+      email,
+      password: z.string().min(1).max(128),
+      otp: z.string().trim().max(32).default(""),
+    })
     .parse(await c.req.json());
   const u = await c.env.DB.prepare(
     "SELECT u.id,u.password_hash,m.id membership_id FROM el_users u JOIN el_memberships m ON m.user_id=u.id WHERE u.email=? AND m.status='active' ORDER BY m.created_at LIMIT 1",
@@ -346,6 +363,11 @@ app.post("/api/auth/login", async (c) => {
     "pbkdf2:100000:00000000000000000000000000000000:0000000000000000000000000000000000000000000000000000000000000000";
   const valid = await checkPassword(d.password, u?.password_hash ?? fake);
   assert(u && valid, 401, "Email or password is incorrect");
+  assert(
+    await verifyMfa(c.env, u.id, d.otp),
+    401,
+    "Authenticator or recovery code is required or invalid",
+  );
   await createSession(c, u.id, u.membership_id);
   return c.json({ ok: true });
 });
@@ -378,6 +400,7 @@ app.use("/api/*", async (c, next) => {
     assert(
       path === "/api/me" ||
         path === "/api/auth/logout" ||
+        path.startsWith("/api/security/") ||
         path === "/api/portal" ||
         path.startsWith("/api/portal/") ||
         path.startsWith("/api/lms/") ||
@@ -819,6 +842,8 @@ registerSupport(app);
 registerInventory(app);
 registerLibrary(app);
 registerReports(app);
+registerSystem(app);
+registerMfa(app);
 registerDocuments(app);
 registerLms(app);
 registerPortalDemo(app);

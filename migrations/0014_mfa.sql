@@ -1,0 +1,4 @@
+CREATE TABLE el_mfa(user_id TEXT PRIMARY KEY REFERENCES el_users(id),ciphertext TEXT NOT NULL,iv TEXT NOT NULL,enabled INTEGER NOT NULL DEFAULT 0 CHECK(enabled IN (0,1)),expires_at INTEGER NOT NULL,last_step INTEGER NOT NULL DEFAULT -1);
+CREATE TABLE el_mfa_recovery(user_id TEXT NOT NULL REFERENCES el_users(id),code_hash TEXT NOT NULL,used_at INTEGER,PRIMARY KEY(user_id,code_hash));
+CREATE TABLE el_mfa_enrollments(user_id TEXT PRIMARY KEY REFERENCES el_users(id),expected_ciphertext TEXT NOT NULL);
+CREATE TRIGGER el_mfa_enroll_guard BEFORE INSERT ON el_mfa_enrollments BEGIN SELECT CASE WHEN NOT EXISTS(SELECT 1 FROM el_mfa WHERE user_id=NEW.user_id AND ciphertext=NEW.expected_ciphertext AND enabled=0 AND expires_at>unixepoch()) THEN RAISE(ABORT,'Authenticator setup changed or expired') END;END;
