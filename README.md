@@ -26,6 +26,11 @@ A bilingual, multi-branch education operations platform. Next.js and Tailwind on
 - Cutoff-aware balance sheets and receivables, period income/trial balance, cash/bank movement and once-only cleared-line statement reconciliation.
 - Six teacher compensation formulas, persisted calculation snapshots, bonuses/deductions, independent approval and third-person payment recording, printable payslips. No real funds move.
 
+- Branch-scoped employees, departments, contracts, workdays, attendance, shifts, independent leave approvals, recruitment and one-time hiring.
+- Employee payroll from complete attendance/approved leave and explicit contract workdays, overtime and approved adjustments. Separate approval accrues wages and a third user records settlement.
+- Lead adviser assignment, campaign attribution, follow-ups/interactions, atomic student conversion, coupon-limited invoice discounts and visitor check-in/out.
+- Private in-app inboxes, templates, preferences and announcement delivery logs. Unconfigured external channels record blocked delivery, never a false send.
+
 This is a phased implementation, **not yet a complete enterprise ERP**. See [the delivery plan](docs/ROADMAP.md) for the remaining phases. Do not enter real student or financial data until the remaining security and recovery work is complete.
 
 ## Local development

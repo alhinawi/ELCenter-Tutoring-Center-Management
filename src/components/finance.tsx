@@ -1,5 +1,6 @@
 "use client";
 import {
+  PayrollSnapshot,
   FinancialStatements,
   InstallmentPlan,
   Reconciliation,
@@ -667,12 +668,11 @@ export default function Finance({
                   <summary className="cursor-pointer">
                     {L("Calculation snapshot", "تفاصيل الحسبة")}
                   </summary>
-                  <pre
-                    className="mt-3 overflow-x-auto rounded-xl bg-slate-50 p-3 text-[10px] dark:bg-slate-800"
-                    dir="ltr"
-                  >
-                    {JSON.stringify(JSON.parse(p.calculation_json), null, 2)}
-                  </pre>
+                  <PayrollSnapshot
+                    value={JSON.parse(p.calculation_json)}
+                    ar={ar}
+                    money={money}
+                  />
                 </details>
                 <button
                   className="mb-4 text-xs text-blue-700 dark:text-blue-300"
@@ -1188,6 +1188,26 @@ export default function Finance({
               {money(detail.paid)} / {money(detail.data.total - detail.paid)}
             </span>
           </div>
+          {detail.data.status === "draft" && allowed("finance", "edit") && (
+            <form
+              className="my-4 flex gap-3"
+              onSubmit={async (e) => {
+                e.preventDefault();
+                const d = Object.fromEntries(new FormData(e.currentTarget));
+                await command(`/invoices/${detail.data.id}/coupon`, "POST", d);
+              }}
+            >
+              <Input
+                name="code"
+                aria-label={L("Coupon code", "كود الخصم")}
+                placeholder={L("Coupon code", "كود الخصم")}
+                required
+              />
+              <Button disabled={busy}>
+                {L("Apply coupon", "تطبيق الخصم")}
+              </Button>
+            </form>
+          )}
           <InstallmentPlan
             key={detail.data.id + ":" + detail.data.status}
             detail={detail}
