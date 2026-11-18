@@ -102,6 +102,36 @@ test("student, guardian and teacher use linked portals and real coursework", asy
   });
   await printPage.close();
   await sp.getByRole("button", { name: "Close", exact: true }).click();
+  await sp
+    .getByRole("button", { name: "Request / history", exact: true })
+    .first()
+    .click();
+  await expect(sp.getByRole("dialog")).toBeVisible();
+  await sp
+    .getByLabel("Requested attendance status", { exact: true })
+    .selectOption("excused");
+  await sp
+    .getByLabel("Reason for correction", { exact: true })
+    .fill("Student asks the school to check the signed absence excuse.");
+  await sp
+    .getByRole("button", { name: "Submit correction request", exact: true })
+    .click();
+  await expect(sp.getByRole("status")).toContainText(
+    "Request submitted for independent review.",
+  );
+  await sp.screenshot({
+    path: "/downloads/elcenter-portal-correction-student.png",
+    fullPage: true,
+  });
+  const correction = (await api("/attendance-corrections")).data.find(
+    (r: any) => r.reason.startsWith("Student asks"),
+  );
+  expect(correction).toBeTruthy();
+  await api("/attendance-corrections/" + correction.id + "/decision", "POST", {
+    decision: "approved",
+    note: "School verified the signed absence excuse.",
+  });
+  await sp.getByRole("button", { name: "Close", exact: true }).click();
   await sp.getByRole("button", { name: "Learning space", exact: true }).click();
   await sp.getByRole("button", { name: "Open class", exact: true }).click();
   await sp
@@ -245,9 +275,30 @@ test("student, guardian and teacher use linked portals and real coursework", asy
   await expect(
     tp.getByRole("dialog", { name: "Class attendance", exact: true }),
   ).toBeVisible();
+  await expect(
+    tp.getByRole("button", { name: "Save new attendance", exact: true }),
+  ).toBeDisabled();
   await tp
-    .getByRole("button", { name: "Save attendance", exact: true })
+    .getByRole("button", { name: "Request correction / history", exact: true })
+    .first()
     .click();
+  await tp
+    .getByLabel("Requested attendance status", { exact: true })
+    .selectOption("late");
+  await tp
+    .getByLabel("Reason for correction", { exact: true })
+    .fill("Teacher checked the signed class register.");
+  await tp
+    .getByRole("button", { name: "Submit correction request", exact: true })
+    .click();
+  await expect(tp.getByRole("status")).toContainText(
+    "Request submitted for independent review.",
+  );
+  await tp.screenshot({
+    path: "/downloads/elcenter-portal-correction-teacher.png",
+    fullPage: true,
+  });
+  await tp.getByRole("button", { name: "Close", exact: true }).click();
   await expect(tp.getByRole("dialog")).toHaveCount(0);
   await tp.getByRole("button", { name: "Learning space", exact: true }).click();
   await tp.getByRole("button", { name: "Open class", exact: true }).click();
@@ -273,6 +324,20 @@ test("student, guardian and teacher use linked portals and real coursework", asy
   expect(
     await sp.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
   ).toBeTruthy();
+  await sp
+    .getByRole("button", { name: "طلب / السجل", exact: true })
+    .first()
+    .click();
+  await expect(
+    sp.getByText("School verified the signed absence excuse.", {
+      exact: false,
+    }),
+  ).toBeVisible();
+  await sp.screenshot({
+    path: "/downloads/elcenter-portal-correction-family-ar-mobile.png",
+    fullPage: false,
+  });
+  await sp.getByRole("button", { name: "Close", exact: true }).click();
   await sp.getByRole("button", { name: "مساحة التعلم", exact: true }).click();
   await sp.getByRole("button", { name: "فتح المجموعة", exact: true }).click();
   await expect(
