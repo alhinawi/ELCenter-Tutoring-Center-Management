@@ -1,20 +1,9 @@
 import type { Hono } from "hono";
 import { z } from "zod";
-import { Temporal } from "@js-temporal/polyfill";
+import { calendarDate as date } from "./dates";
 import { permit, audit, type AppContext } from "./app";
 import { assert } from "./security";
 import { now } from "./db";
-const date = z
-  .string()
-  .regex(/^\d{4}-\d{2}-\d{2}$/)
-  .refine((v) => {
-    try {
-      Temporal.PlainDate.from(v, { overflow: "reject" });
-      return true;
-    } catch {
-      return false;
-    }
-  });
 export function registerLedgerExport(app: Hono<any>) {
   app.post("/api/finance/ledger-export", async (c: AppContext) => {
     permit(c, "finance");

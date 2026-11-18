@@ -1,3 +1,4 @@
+import { calendarDate } from "./dates";
 import { captureInvoicePrint, invoicePrintSnapshot } from "./invoice-print";
 import type { Hono } from "hono";
 import { readLedger } from "./ledger";
@@ -7,17 +8,7 @@ import { uid, type Statement } from "./db";
 import { assert } from "./security";
 import { permit, scope, audit, type AppContext } from "./app";
 import { record } from "./academic";
-export const date = z
-    .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/)
-    .refine((x) => {
-      try {
-        Temporal.PlainDate.from(x);
-        return true;
-      } catch {
-        return false;
-      }
-    }),
+export const date = calendarDate,
   amount = z.number().int().min(1).max(1000000000),
   text = z.string().trim().min(1).max(500),
   optional = z.string().trim().max(500).default("");

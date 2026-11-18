@@ -1,3 +1,4 @@
+import { isCalendarDate as validDate } from "./dates";
 import type { Hono } from "hono";
 import { z } from "zod";
 import { audit, permit, type AppContext } from "./app";
@@ -35,10 +36,6 @@ const definition = z
           "Select fields need unique options; other types have no options",
       });
   });
-const validDate = (s: string) =>
-  /^\d{4}-\d{2}-\d{2}$/.test(s) &&
-  !Number.isNaN(Date.parse(s)) &&
-  new Date(s + "T00:00:00Z").toISOString().slice(0, 10) === s;
 export function registerCustomFields(app: Hono<any>) {
   app.get("/api/custom-fields", async (c: AppContext) => {
     permit(c, "organization");
