@@ -1,0 +1,3 @@
+CREATE TABLE el_invoice_number_sequences(org_id TEXT PRIMARY KEY REFERENCES el_organizations(id),enabled INTEGER NOT NULL DEFAULT 0 CHECK(enabled IN (0,1)),prefix TEXT NOT NULL DEFAULT 'INV-' CHECK(length(prefix) BETWEEN 1 AND 16),next_number INTEGER NOT NULL DEFAULT 1 CHECK(typeof(next_number)='integer' AND next_number BETWEEN 1 AND 999999999),updated_at INTEGER NOT NULL);
+CREATE TRIGGER el_invoice_sequence_monotonic BEFORE UPDATE OF next_number ON el_invoice_number_sequences WHEN NEW.next_number<OLD.next_number BEGIN SELECT RAISE(ABORT,'Invoice sequence cannot move backwards'); END;
+CREATE TRIGGER el_invoice_sequence_no_delete BEFORE DELETE ON el_invoice_number_sequences BEGIN SELECT RAISE(ABORT,'Invoice sequence cannot be deleted'); END;

@@ -1,3 +1,4 @@
+import { registerInvoiceNumbering } from "./invoice-numbering";
 import { registerInvoicePrint } from "./invoice-print";
 import { registerCoursePackages } from "./course-packages";
 import { registerCoursePrerequisites } from "./course-prerequisites";
@@ -888,6 +889,7 @@ registerScheduling(app);
 registerAssessment(app);
 registerFinance(app);
 registerInvoicePrint(app);
+registerInvoiceNumbering(app);
 registerFinancePlans(app);
 registerOperations(app);
 registerPortals(app);

@@ -318,7 +318,7 @@ export function registerFinance(app: Hono<any>) {
   const invoiceSchema = z
     .object({
       student_id: z.uuid(),
-      number: z.string().trim().min(1).max(40),
+      number: z.string().trim().max(40).default(""),
       date,
       due_date: date,
       discount: z.number().int().min(0).max(1000000000).default(0),
@@ -354,15 +354,35 @@ export function registerFinance(app: Hono<any>) {
       )
         .bind(a.org_id)
         .first<{ currency: string }>())!.currency;
+    if (!d.number) {
+      const seq = await c.env.DB.prepare(
+        "SELECT enabled,next_number FROM el_invoice_number_sequences WHERE org_id=?",
+      )
+        .bind(a.org_id)
+        .first<{ enabled: number; next_number: number }>();
+      assert(
+        seq?.enabled && seq.next_number < 999999999,
+        409,
+        "Automatic invoice numbering is disabled or exhausted; enter a manual number or ask headquarters",
+      );
+    }
     await c.env.DB.batch([
+      ...(!d.number
+        ? [
+            c.env.DB.prepare(
+              "UPDATE el_invoice_number_sequences SET next_number=CASE WHEN enabled=1 AND next_number<999999999 THEN next_number+1 ELSE 0 END WHERE org_id=?",
+            ).bind(a.org_id),
+          ]
+        : []),
       c.env.DB.prepare(
-        "INSERT INTO el_invoices(id,org_id,branch_id,student_id,number,date,due_date,currency,discount,total,created_by) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+        "INSERT INTO el_invoices(id,org_id,branch_id,student_id,number,date,due_date,currency,discount,total,created_by) VALUES(?,?,?,?,COALESCE(NULLIF(?,''),(SELECT prefix||printf('%06d',next_number-1) FROM el_invoice_number_sequences WHERE org_id=?)),?,?,?,?,?,?)",
       ).bind(
         id,
         a.org_id,
         s.branch_id,
         s.id,
         d.number,
+        a.org_id,
         d.date,
         d.due_date,
         currency,
@@ -377,7 +397,12 @@ export function registerFinance(app: Hono<any>) {
       ),
       audit(c, "invoice", id, "create", null, { ...d, total }),
     ]);
-    return c.json({ id }, 201);
+    const created = await c.env.DB.prepare(
+      "SELECT number FROM el_invoices WHERE id=? AND org_id=?",
+    )
+      .bind(id, a.org_id)
+      .first<{ number: string }>();
+    return c.json({ id, number: created!.number }, 201);
   });
   app.get("/api/invoices/:id", async (c: AppContext) => {
     permit(c, "finance");
