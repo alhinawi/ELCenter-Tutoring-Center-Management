@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 export function FamilyRequestHistory({
   id,
   name,
@@ -7,6 +7,8 @@ export function FamilyRequestHistory({
   api,
   version = 0,
   timezone,
+  staff = false,
+  action,
 }: {
   id: string;
   name: string;
@@ -14,6 +16,8 @@ export function FamilyRequestHistory({
   api: (p: string) => Promise<any>;
   version?: number;
   timezone: string;
+  staff?: boolean;
+  action?: (r: any) => ReactNode;
 }) {
   const L = (e: string, a: string) => (ar ? a : e),
     [page, setPage] = useState(1),
@@ -31,7 +35,8 @@ export function FamilyRequestHistory({
     setBusy(true);
     setError("");
     api(
-      `/portal/students/${id}/requests?page=${page}&status=${status}&kind=${kind}`,
+      (staff ? "/portal-requests" : `/portal/students/${id}/requests`) +
+        `?page=${page}&status=${status}&kind=${kind}`,
     )
       .then((r) => {
         if (n === request.current) {
@@ -48,7 +53,7 @@ export function FamilyRequestHistory({
     return () => {
       request.current++;
     };
-  }, [id, page, status, kind, version]);
+  }, [id, page, status, kind, version, staff]);
   function clear() {
     request.current++;
     setRows([]);
@@ -70,14 +75,23 @@ export function FamilyRequestHistory({
   return (
     <section
       className="space-y-4 p-5"
-      aria-label={L("Your center request history", "سجل طلباتك للمركز")}
+      aria-label={
+        staff
+          ? L("Family request review queue", "قائمة مراجعة طلبات الأسرة")
+          : L("Your center request history", "سجل طلباتك للمركز")
+      }
     >
       <p className="text-xs leading-6 text-slate-500">
         <strong>{name}</strong> ·{" "}
-        {L(
-          "Only requests submitted by this login for this student. Another guardian's or student's private requests are not shared. All recorded dates, 20 per page. Stored center requests and responses only, not external messages or a confirmed appointment. Submitting an absence excuse does not change attendance.",
-          "طلبات الحساب ده للطالب ده بس. طلبات ولي أمر تاني أو الطالب الخاصة مش مشتركة. كل التواريخ المسجلة،20 في الصفحة. دي طلبات وردود محفوظة للمركز بس، مش رسائل خارجية أو موعد مؤكد. تقديم عذر غياب مش بيغير الحضور.",
-        )}
+        {staff
+          ? L(
+              "All submitted family requests in your current membership branch scope, 20 per page. Pending requests need a separate authorized staff response. Decisions are saved with an in-app notification, not external delivery or a confirmed appointment. Absence requests do not change attendance.",
+              "كل طلبات الأسرة في نطاق فرع عضويتك الحالي،20 في الصفحة. الطلبات المعلقة محتاجة رد موظف عنده الصلاحية. القرار بيتحفظ مع إشعار داخل التطبيق، مش إرسال خارجي أو موعد مؤكد. طلبات الغياب مش بتغير الحضور.",
+            )
+          : L(
+              "Only requests submitted by this login for this student. Another guardian's or student's private requests are not shared. All recorded dates, 20 per page. Stored center requests and responses only, not external messages or a confirmed appointment. Submitting an absence excuse does not change attendance.",
+              "طلبات الحساب ده للطالب ده بس. طلبات ولي أمر تاني أو الطالب الخاصة مش مشتركة. كل التواريخ المسجلة،20 في الصفحة. دي طلبات وردود محفوظة للمركز بس، مش رسائل خارجية أو موعد مؤكد. تقديم عذر غياب مش بيغير الحضور.",
+            )}
       </p>
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="text-sm">
@@ -149,6 +163,9 @@ export function FamilyRequestHistory({
               data-testid="family-request-row"
               className="space-y-3 break-words rounded-2xl border border-slate-100 p-4 dark:border-slate-800"
             >
+              {staff && (
+                <p className="text-xs text-slate-500">{r.student_name}</p>
+              )}
               <div className="flex flex-wrap justify-between gap-3 text-sm">
                 <strong>{r.subject}</strong>
                 <span>{statuses[r.status]}</span>
@@ -177,6 +194,7 @@ export function FamilyRequestHistory({
                   <p className="whitespace-pre-wrap">{r.response}</p>
                 </div>
               )}
+              {action?.(r)}
             </article>
           ))}
           <div className="flex justify-between gap-3">

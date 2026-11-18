@@ -1,4 +1,4 @@
-import { familyRequests } from "./family-requests";
+import { familyRequests, staffRequests } from "./family-requests";
 import { teacherSchedule } from "./teacher-schedule";
 import { familySchedule } from "./family-schedule";
 import { familyInvoices } from "./family-invoices";
@@ -434,19 +434,7 @@ export function registerPortals(app: Hono<any>) {
     ]);
     return c.json({ id }, 201);
   });
-  app.get("/api/portal-requests", async (c: AppContext) => {
-    permit(c, "students");
-    const a = c.get("actor");
-    return c.json({
-      data: (
-        await c.env.DB.prepare(
-          "SELECT r.*,s.name student_name FROM el_portal_requests r JOIN el_students s ON s.id=r.student_id WHERE r.org_id=? AND (? IS NULL OR r.branch_id=?) ORDER BY r.created_at DESC LIMIT 100",
-        )
-          .bind(a.org_id, a.branch_id, a.branch_id)
-          .all()
-      ).results,
-    });
-  });
+  app.get("/api/portal-requests", staffRequests);
   app.post("/api/portal-requests/:id/decision", async (c: AppContext) => {
     permit(c, "students", "approve");
     const a = c.get("actor"),

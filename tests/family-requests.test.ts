@@ -219,6 +219,102 @@ test("family request history pages complete account-private records", async (t) 
     },
   );
   await t.test(
+    "staff directory enumerates complete scoped records and refuses portal roles",
+    async () => {
+      const staff = { cookie: "", csrf: "" };
+      await account("branch_manager", staff);
+      const seen = new Set<string>();
+      for (let page = 1; page <= 7; page++) {
+        const r = await call(
+          "/portal-requests?page=" + page,
+          "GET",
+          undefined,
+          staff,
+        );
+        assert.equal(r.r.status, 200, JSON.stringify(r.j));
+        assert.equal(r.j.total, 123);
+        for (const row of r.j.data) {
+          assert(!seen.has(row.id));
+          seen.add(row.id);
+          assert(row.student_name);
+          for (const key of ["user_id", "decided_by", "org_id", "branch_id"])
+            assert(!(key in row));
+        }
+      }
+      assert.equal(seen.size, 123);
+      for (const c of [student, guardian, teacher])
+        assert.equal(
+          (await call("/portal-requests", "GET", undefined, c)).r.status,
+          403,
+        );
+      for (const q of [
+        "page=0",
+        "page=1.5",
+        "page=10001",
+        "status=unknown",
+        "kind=unknown",
+      ])
+        assert.equal(
+          (await call("/portal-requests?" + q, "GET", undefined, staff)).r
+            .status,
+          400,
+        );
+      for (const status of statuses)
+        for (const kind of kinds) {
+          const r = await call(
+            `/portal-requests?status=${status}&kind=${kind}`,
+            "GET",
+            undefined,
+            staff,
+          );
+          let expected = Array.from({ length: 121 }, (_, i) => i).filter(
+            (i) => statuses[i % 4] === status && kinds[i % 3] === kind,
+          ).length;
+          if (status === "pending" && kind === "contact") expected += 2;
+          assert.equal(r.j.total, expected);
+        }
+      const b = (
+        await call("/branches", "POST", {
+          name: "Fictional Remote",
+          code: "FR-REMOTE",
+          capacity: 20,
+          status: "active",
+        })
+      ).j.id;
+      const learner = (
+        await call("/students", "POST", {
+          name: "Fictional Remote Learner",
+          code: "FRR",
+          branch_id: b,
+        })
+      ).j.id;
+      insert.run(
+        randomUUID(),
+        org,
+        b,
+        learner,
+        studentAccount.user,
+        "contact",
+        "OTHER BRANCH PRIVATE",
+        "Other branch body",
+        "pending",
+        "",
+        "2026-11-18 12:00:00",
+      );
+      assert.equal(
+        (await call("/portal-requests", "GET", undefined, staff)).j.total,
+        123,
+      );
+      assert.equal((await call("/portal-requests")).j.total, 124);
+      const f = { cookie: "", csrf: "" };
+      await call("/auth/demo", "POST", {}, f);
+      await call("/me", "GET", undefined, f);
+      const isolated = await call("/portal-requests", "GET", undefined, f);
+      assert.equal(isolated.r.status, 200);
+      assert.equal(isolated.j.total, 0);
+    },
+  );
+  await t.test(
     "current role, relationship, profile, branch and link gate every page",
     async () => {
       for (const c of [teacher, unlinked, owner])
