@@ -1,3 +1,4 @@
+import { familyAttendance } from "./family-attendance";
 import { familyResults } from "./family-results";
 import { invoicePrintSnapshot } from "./invoice-print";
 import type { Hono } from "hono";
@@ -173,6 +174,7 @@ export function registerPortals(app: Hono<any>) {
       ).results;
     return c.json({ kind: link.kind, profile: link.profile, children });
   });
+  app.get("/api/portal/students/:id/attendance", familyAttendance);
   app.get("/api/portal/students/:id/results", familyResults);
   app.get("/api/portal/students/:id", async (c: AppContext) => {
     const student = await ownedStudent(c, c.req.param("id")!),
