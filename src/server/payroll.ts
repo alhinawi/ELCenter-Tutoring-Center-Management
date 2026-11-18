@@ -121,7 +121,7 @@ export function registerPayroll(app: Hono<any>) {
     return c.json({
       data: (
         await c.env.DB.prepare(
-          "SELECT p.*,t.name teacher_name FROM el_payroll p JOIN el_teachers t ON t.id=p.teacher_id WHERE p.org_id=? AND (? IS NULL OR p.branch_id=?) ORDER BY p.month DESC,t.name LIMIT 200",
+          "SELECT p.*,t.name teacher_name,z.closed_on zero_closed_on,z.reason zero_closure_reason FROM el_payroll p JOIN el_teachers t ON t.id=p.teacher_id LEFT JOIN el_zero_payroll_closures z ON z.org_id=p.org_id AND z.teacher_payroll_id=p.id WHERE p.org_id=? AND (? IS NULL OR p.branch_id=?) ORDER BY p.month DESC,t.name LIMIT 200",
         )
           .bind(a.org_id, a.branch_id, a.branch_id)
           .all()

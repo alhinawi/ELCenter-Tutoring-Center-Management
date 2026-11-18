@@ -1,4 +1,5 @@
 "use client";
+import { ZeroPayrollClosure } from "./zero-payroll";
 import {
   PayrollSnapshot,
   FinancialStatements,
@@ -658,7 +659,11 @@ export default function Finance({
               <Card key={p.id} className="p-5">
                 <div className="flex justify-between">
                   <h2 className="font-semibold">{p.teacher_name}</h2>
-                  <span className="text-[10px] text-slate-400">{p.status}</span>
+                  <span className="text-[10px] text-slate-400">
+                    {p.zero_closed_on
+                      ? L("Closed / no payment", "مغلق / بدون صرف")
+                      : p.status}
+                  </span>
                 </div>
                 <p className="my-2 text-xs text-slate-400">{p.month}</p>
                 <p className="my-4 text-xl font-semibold" dir="ltr">
@@ -695,17 +700,43 @@ export default function Finance({
                     {L("Approve payroll", "اعتماد المرتب")}
                   </Button>
                 )}
-                {p.status === "approved" && allowed("finance", "approve") && (
-                  <Button
-                    disabled={busy}
-                    onClick={() => {
-                      setRefund(p);
-                      setForm("payroll-payment");
-                    }}
-                  >
-                    {L("Record payment", "تسجيل الصرف")}
-                  </Button>
+                {p.zero_closed_on && (
+                  <p className="my-4 whitespace-pre-wrap break-words text-sm text-slate-500">
+                    {L("Closed without payment", "اتقفل بدون صرف")} ·{" "}
+                    {p.zero_closed_on}
+                    <br />
+                    {p.zero_closure_reason}
+                  </p>
                 )}
+                {p.status === "approved" &&
+                  !p.zero_closed_on &&
+                  p.total === 0 &&
+                  allowed("finance", "approve") && (
+                    <ZeroPayrollClosure
+                      api={api}
+                      ar={ar}
+                      id={p.id}
+                      kind="payroll"
+                      onSaved={() => {
+                        toast();
+                        setVersion((v) => v + 1);
+                      }}
+                    />
+                  )}
+                {p.status === "approved" &&
+                  !p.zero_closed_on &&
+                  p.total > 0 &&
+                  allowed("finance", "approve") && (
+                    <Button
+                      disabled={busy}
+                      onClick={() => {
+                        setRefund(p);
+                        setForm("payroll-payment");
+                      }}
+                    >
+                      {L("Record payment", "تسجيل الصرف")}
+                    </Button>
+                  )}
               </Card>
             ))}
           </div>

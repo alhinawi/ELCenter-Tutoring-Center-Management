@@ -55,6 +55,7 @@ const statusNames: Record<string, [string, string]> = {
   pending: ["Pending", "قيد المراجعة"],
   accepted: ["Accepted", "مقبول"],
   approved: ["Approved", "موافق عليه"],
+  closed_zero: ["Closed / no payment", "مغلق / بدون صرف"],
   rejected: ["Rejected", "مرفوض"],
   present: ["Present", "حاضر"],
   absent: ["Absent", "غائب"],
