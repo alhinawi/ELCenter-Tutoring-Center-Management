@@ -1,4 +1,5 @@
 import { registerProfilePhotos } from "./profile-photos";
+import { registerLedgerExport } from "./ledger-export";
 import { registerAccountStatement } from "./account-statement";
 import { registerReceiptNumbering } from "./receipt-numbering";
 import { registerInvoiceNumbering } from "./invoice-numbering";
@@ -903,6 +904,7 @@ registerInvoicePrint(app);
 registerInvoiceNumbering(app);
 registerReceiptNumbering(app);
 registerAccountStatement(app);
+registerLedgerExport(app);
 registerFinancePlans(app);
 registerOperations(app);
 registerPortals(app);

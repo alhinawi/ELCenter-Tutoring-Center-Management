@@ -1,5 +1,6 @@
 "use client";
 import { useModalFocus } from "./modal-focus";
+import { CompleteLedgerExport } from "./ledger-export";
 import { AccountStatementExport } from "./account-statement";
 import { ReceiptNumberSettings } from "./receipt-numbering";
 import { InvoiceNumberSettings } from "./invoice-numbering";
@@ -607,6 +608,15 @@ export default function Finance({
         </Card>
       ) : section === "ledger" ? (
         <>
+          {allowed("finance", "export") && (
+            <CompleteLedgerExport
+              key={"all" + dates.from + dates.to}
+              api={api}
+              ar={ar}
+              from={dates.from}
+              to={dates.to}
+            />
+          )}
           {allowed("finance", "export") && (
             <AccountStatementExport
               key={dates.from + dates.to}
