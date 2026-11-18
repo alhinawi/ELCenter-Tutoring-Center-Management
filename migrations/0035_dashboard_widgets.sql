@@ -1,0 +1,1 @@
+CREATE TABLE el_dashboard_preferences(org_id TEXT NOT NULL,user_id TEXT NOT NULL,widgets_json TEXT NOT NULL CHECK(json_valid(widgets_json)),updated_at INTEGER NOT NULL,PRIMARY KEY(org_id,user_id),FOREIGN KEY(org_id,user_id) REFERENCES el_memberships(org_id,user_id));

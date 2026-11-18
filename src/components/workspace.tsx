@@ -1,4 +1,6 @@
 "use client";
+import { Fragment } from "react";
+import { DashboardCustomize } from "./dashboard-customize";
 import { BranchLogo, BranchLogoSettings } from "./branch-logo";
 import { useModalFocus } from "./modal-focus";
 import { OrganizationLogo } from "./organization-logo";
@@ -857,19 +859,28 @@ function Heading({
   );
 }
 function Dashboard({ t, api, go }: { t: T; api: Api; go: (t: Tab) => void }) {
-  const { data, error } = useLoad(api, "/dashboard");
-  if (!data) return <LoadState t={t} error={error} />;
+  const { data, error, reload } = useLoad(api, "/dashboard");
+  const ar = t.language === "English",
+    L = (e: string, a: string) => (ar ? a : e);
+  const labels: Record<string, string> = {
+    welcome: L("Welcome", "الترحيب"),
+    branch_stats: t.activeBranches,
+    team_stats: t.team,
+    capacity_stats: t.totalCapacity,
+    role_stats: t.permissionsCount,
+    branch_network: t.branchNetwork,
+    activity: t.recentActivity,
+  };
+  if (!data || error) return <LoadState t={t} error={error} />;
   const branches: Row[] = data.branches,
     active = branches.filter((b) => b.status === "active");
-  return (
-    <>
-      <Heading title={t.overview} sub={t.ready}>
-        <span className="flex items-center gap-2 rounded-full bg-white px-4 py-2 text-xs text-slate-500 dark:bg-slate-900">
-          <span className="h-2 w-2 rounded-full bg-teal-500" />
-          {t.private}
-        </span>
-      </Heading>
-      <section className="relative mb-7 min-h-[230px] overflow-hidden rounded-2xl bg-slate-950 text-white">
+  const visible = (id: string) => data.widgets.includes(id);
+  const widgets: Record<string, ReactNode> = {
+    welcome: (
+      <section
+        data-dashboard-widget="welcome"
+        className="col-span-2 xl:col-span-12 relative min-h-[230px] overflow-hidden rounded-2xl bg-slate-950 text-white"
+      >
         <img
           src="/images/students.jpg"
           alt="Students working together"
@@ -889,45 +900,13 @@ function Dashboard({ t, api, go }: { t: T; api: Api; go: (t: Tab) => void }) {
           </p>
         </div>
       </section>
-      <div className="mb-8 grid grid-cols-2 gap-3 xl:grid-cols-4 md:gap-5">
-        {[
-          {
-            label: t.activeBranches,
-            value: active.length,
-            Icon: Building2,
-            sub: t.network,
-          },
-          { label: t.team, value: data.members, Icon: Users, sub: t.members },
-          {
-            label: t.totalCapacity,
-            value: active.reduce((n, b) => n + Number(b.capacity), 0),
-            Icon: GraduationCap,
-            sub: t.people,
-          },
-          {
-            label: t.permissionsCount,
-            value: data.roles,
-            Icon: ShieldCheck,
-            sub: t.system,
-          },
-        ].map(({ label, value, Icon, sub }) => (
-          <Card key={label} className="p-4 md:p-5">
-            <div className="mb-4 flex items-center justify-between">
-              <span className="rounded-xl bg-blue-50 p-2.5 text-blue-700 dark:bg-blue-950 dark:text-blue-300">
-                <Icon size={18} />
-              </span>
-              <span className="h-1.5 w-1.5 rounded-full bg-teal-400" />
-            </div>
-            <p className="text-xs text-slate-500">{label}</p>
-            <p className="mt-2 text-3xl font-semibold tracking-tight" dir="ltr">
-              {value.toLocaleString("en-US")}
-            </p>
-            <p className="mt-2 text-[10px] text-slate-400">{sub}</p>
-          </Card>
-        ))}
-      </div>
-      <div className="grid gap-6 xl:grid-cols-[1.6fr_1fr]">
-        <Card className="overflow-hidden">
+    ),
+    branch_network: (
+      <div
+        data-dashboard-widget="branch_network"
+        className="col-span-2 xl:col-span-8"
+      >
+        <Card className="h-full overflow-hidden">
           <div className="flex items-center justify-between gap-3 border-b border-slate-100 p-5 md:p-6 dark:border-slate-800">
             <h2 className="text-base font-semibold">{t.branchNetwork}</h2>
             <button
@@ -968,7 +947,14 @@ function Dashboard({ t, api, go }: { t: T; api: Api; go: (t: Tab) => void }) {
             ))}
           </div>
         </Card>
-        <Card>
+      </div>
+    ),
+    activity: (
+      <div
+        data-dashboard-widget="activity"
+        className="col-span-2 xl:col-span-4"
+      >
+        <Card className="h-full">
           <div className="border-b border-slate-100 p-5 md:p-6 dark:border-slate-800">
             <h2 className="text-base font-semibold">{t.recentActivity}</h2>
           </div>
@@ -1003,6 +989,92 @@ function Dashboard({ t, api, go }: { t: T; api: Api; go: (t: Tab) => void }) {
             </div>
           )}
         </Card>
+      </div>
+    ),
+    ...Object.fromEntries(
+      [
+        {
+          id: "branch_stats",
+          label: t.activeBranches,
+          value: active.length,
+          Icon: Building2,
+          sub: t.network,
+        },
+        {
+          id: "team_stats",
+          label: t.team,
+          value: data.members,
+          Icon: Users,
+          sub: t.members,
+        },
+        {
+          id: "capacity_stats",
+          label: t.totalCapacity,
+          value: active.reduce((n, b) => n + Number(b.capacity), 0),
+          Icon: GraduationCap,
+          sub: t.people,
+        },
+        {
+          id: "role_stats",
+          label: t.permissionsCount,
+          value: data.roles,
+          Icon: ShieldCheck,
+          sub: t.system,
+        },
+      ]
+        .filter((w) => visible(w.id))
+        .map(({ id, label, value, Icon, sub }) => [
+          id,
+          <div key={id} data-dashboard-widget={id} className="xl:col-span-3">
+            <Card className="h-full p-4 md:p-5">
+              <div className="mb-4 flex items-center justify-between">
+                <span className="rounded-xl bg-blue-50 p-2.5 text-blue-700 dark:bg-blue-950 dark:text-blue-300">
+                  <Icon size={18} />
+                </span>
+                <span className="h-1.5 w-1.5 rounded-full bg-teal-400" />
+              </div>
+              <p className="text-xs text-slate-500">{label}</p>
+              <p
+                className="mt-2 text-3xl font-semibold tracking-tight"
+                dir="ltr"
+              >
+                {value.toLocaleString("en-US")}
+              </p>
+              <p className="mt-2 text-[10px] text-slate-400">{sub}</p>
+            </Card>
+          </div>,
+        ]),
+    ),
+  };
+  return (
+    <>
+      <Heading title={t.overview} sub={t.ready}>
+        <span className="flex items-center gap-2 rounded-full bg-white px-4 py-2 text-xs text-slate-500 dark:bg-slate-900">
+          <span className="h-2 w-2 rounded-full bg-teal-500" />
+          {t.private}
+        </span>
+      </Heading>
+      <DashboardCustomize
+        api={api}
+        data={data}
+        reload={reload}
+        ar={ar}
+        labels={labels}
+      />
+      {data.widgets.length === 0 && (
+        <Card className="mb-5 p-6">
+          <p>
+            {L(
+              "No widgets selected. Use Customize dashboard to restore them.",
+              "مفيش بطاقات مختارة. استخدم تخصيص لوحة المتابعة عشان ترجعها.",
+            )}
+          </p>
+        </Card>
+      )}
+      <div className="grid grid-cols-2 gap-5 xl:grid-cols-12">
+        {data.widgets.map((id: string) => (
+          <Fragment key={id}>{widgets[id]}</Fragment>
+        ))}
       </div>
       <div className="mt-6 flex gap-3 rounded-xl border border-blue-100 bg-blue-50/60 p-4 dark:border-blue-950 dark:bg-blue-950/30">
         <Layers size={18} className="mt-1 shrink-0 text-blue-600" />
