@@ -81,7 +81,7 @@ Fixed-price, currency-snapshotted packages contain 2–10 active courses assigne
 
 ## Current release boundary
 
-The original request remains larger than the merged core. No production or commercial-readiness sign-off is implied. Remaining work includes account recovery/verification and Google sign-in, approved external providers, production backup scheduling and restore drills, live deployment/load/security checks, tax and editable print-template settings, advances/loans, deeper historical cohort analytics, configurable rule coverage and the detailed workflow limits recorded above. The development branch and real CI tests are not proof of the production database state.
+The original request remains larger than the merged core. No production or commercial-readiness sign-off is implied. Remaining work includes account recovery/verification and Google sign-in, approved external providers, production backup scheduling and restore drills, live deployment/load/security checks, tax and editable print-template settings, automatic loan payroll deductions/corrections, deeper historical cohort analytics, configurable rule coverage and the detailed workflow limits recorded above. The development branch and real CI tests are not proof of the production database state.
 
 ## Staff reminder rules increment
 
