@@ -2,18 +2,7 @@ import type { AppContext } from "./app";
 import { permit } from "./app";
 import { z } from "zod";
 import { assert } from "./security";
-import { Temporal } from "@js-temporal/polyfill";
-const ledgerDate = z
-  .string()
-  .regex(/^\d{4}-\d{2}-\d{2}$/)
-  .refine((value) => {
-    try {
-      Temporal.PlainDate.from(value, { overflow: "reject" });
-      return true;
-    } catch {
-      return false;
-    }
-  }, "Invalid date");
+import { calendarDate as ledgerDate } from "./dates";
 export async function readLedger(c: AppContext) {
   const cursorSchema = z
     .object({

@@ -1,3 +1,4 @@
+import { calendarDate } from "./dates";
 import type { Hono } from "hono";
 import { z } from "zod";
 import { Temporal } from "@js-temporal/polyfill";
@@ -299,7 +300,7 @@ export function registerScheduling(app: Hono<any>) {
     const d = z
       .object({
         branch_id: z.uuid().nullable(),
-        date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+        date: calendarDate,
         name: z.string().min(1).max(160),
       })
       .parse(await c.req.json());

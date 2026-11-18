@@ -1,3 +1,4 @@
+import { calendarDate as day } from "./dates";
 import { Temporal } from "@js-temporal/polyfill";
 import type { Hono } from "hono";
 import { z } from "zod";
@@ -5,14 +6,6 @@ import { audit, permit, scope, type AppContext } from "./app";
 import { record } from "./academic";
 import { uid, now } from "./db";
 import { assert } from "./security";
-const day = z
-  .string()
-  .regex(/^\d{4}-\d{2}-\d{2}$/)
-  .refine(
-    (s) =>
-      !Number.isNaN(Date.parse(s)) &&
-      new Date(s + "T00:00:00Z").toISOString().slice(0, 10) === s,
-  );
 export function packageEnrollmentDay(timezone: string, epochMs = Date.now()) {
   return Temporal.Instant.fromEpochMilliseconds(epochMs)
     .toZonedDateTimeISO(timezone)

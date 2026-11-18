@@ -1,3 +1,4 @@
+import { calendarDate as date } from "./dates";
 import type { Hono } from "hono";
 import { seedAcademicDemo, seedLearningDemo } from "./demo";
 import { z } from "zod";
@@ -14,10 +15,6 @@ const text = z.string().trim().max(500).default(""),
     .regex(/^[A-Za-z0-9_-]+$/),
   count = z.number().int().min(1).max(100000),
   money = z.number().int().min(0).max(100000000),
-  date = z
-    .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/)
-    .refine((x) => !isNaN(Date.parse(x))),
   email = z.union([z.email(), z.literal("")]).default("");
 const base = { branch_id: z.uuid(), name };
 const schema = {
@@ -776,6 +773,8 @@ export function registerAcademic(app: Hono<any>) {
     const row = await record(c, "courses", c.req.param("id")!);
     const d = z.object({ name, code }).parse(await c.req.json());
     const { id: old, org_id, created_at, updated_at, ...copy } = row;
+    // Never multiply invalid historical inputs through the duplication shortcut.
+    schema.courses.parse({ ...copy, ...d });
     const recordData: Record<string, any> = { ...copy, ...d },
       keys = Object.keys(recordData),
       id = uid();
