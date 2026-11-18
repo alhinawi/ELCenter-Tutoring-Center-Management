@@ -1,3 +1,4 @@
+import { familySchedule } from "./family-schedule";
 import { familyInvoices } from "./family-invoices";
 import { familyAttendance } from "./family-attendance";
 import { familyResults } from "./family-results";
@@ -175,6 +176,7 @@ export function registerPortals(app: Hono<any>) {
       ).results;
     return c.json({ kind: link.kind, profile: link.profile, children });
   });
+  app.get("/api/portal/students/:id/schedule", familySchedule);
   app.get("/api/portal/students/:id/invoices", familyInvoices);
   app.get("/api/portal/students/:id/attendance", familyAttendance);
   app.get("/api/portal/students/:id/results", familyResults);
