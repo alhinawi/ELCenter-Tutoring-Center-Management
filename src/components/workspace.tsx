@@ -1,5 +1,6 @@
 "use client";
 import Operations from "./operations";
+import { SystemControls } from "./system-controls";
 import Resources from "./resources";
 import { Portal, LearningSpace, PortalAdmin } from "./portals";
 import Finance from "./finance";
@@ -177,6 +178,18 @@ export default function Workspace() {
     !!me?.user.permissions.includes(`${resource}:${action}`);
   const chrome = (
     <div className="flex items-center gap-1">
+      {me && (
+        <SystemControls
+          api={api}
+          ar={lang === "ar"}
+          admin={allowed("organization", "manage") && !me.user.branch_id}
+          searchable={
+            !["student", "parent_guardian", "teacher"].includes(
+              me.user.system_key,
+            )
+          }
+        />
+      )}
       <button
         aria-label={dark ? t.light : t.dark}
         onClick={() => setDark(!dark)}
@@ -735,6 +748,17 @@ function Auth({
             required
           />
         </Field>
+        {!signup && (
+          <Field
+            label={
+              t.language === "English"
+                ? "كود المصادقة أو الاسترداد (لو مفعّل)"
+                : "Authenticator or recovery code (if enabled)"
+            }
+          >
+            <Input name="otp" autoComplete="one-time-code" maxLength={32} />
+          </Field>
+        )}
         {(err || error) && (
           <p
             role="alert"

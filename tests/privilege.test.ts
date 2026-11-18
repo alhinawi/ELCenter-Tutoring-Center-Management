@@ -1,11 +1,14 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import app from "../src/server/app";
 import { sqliteDatabase } from "../scripts/sqlite";
 test("user managers cannot assign existing higher-privilege roles", async () => {
   const { raw, db } = sqliteDatabase();
-  raw.exec(readFileSync("migrations/0001_foundation.sql", "utf8"));
+  for (const f of readdirSync("migrations")
+    .filter((f) => f.endsWith(".sql"))
+    .sort())
+    raw.exec(readFileSync("migrations/" + f, "utf8"));
   let cookie = "",
     csrf = "";
   async function call(p: string, method = "GET", body?: unknown) {

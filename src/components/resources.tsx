@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { Button, Card, Field, Input, Select, inputClass } from "./ui";
 import { Dialog, Panel, Table, Badge } from "./portals";
+import { ReportSchedules } from "./system-controls";
 import { printRecord } from "./finance-extra";
 import type { T } from "./i18n";
 type Row = Record<string, any>;
@@ -1686,6 +1687,12 @@ export function Reports(p: Props) {
           <Button type="submit">{L("Run report", "عرض التقرير")}</Button>
         </form>
       </Card>
+      <ReportSchedules
+        api={p.api}
+        ar={ar}
+        canCreate={p.allowed("reports", "create")}
+        canEdit={p.allowed("reports", "edit")}
+      />
       {error && (
         <p
           role="alert"

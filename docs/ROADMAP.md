@@ -10,8 +10,8 @@ Each phase is a real pull request with tested server persistence and usable scre
 | 4     | Invoices, payments, expenses, accounting, payroll                               | Merged, PR #4 |
 | 5     | HR, CRM, notifications, marketing, reception                                    | Merged, PR #5 |
 | 6     | Student, guardian and teacher portals, LMS                                      | Merged, PR #6 |
-| 7     | Inventory, library, support, documents, reports                                 | In review     |
-| 8     | Security hardening, automations, integrations, performance, testing, deployment | Planned       |
+| 7     | Inventory, library, support, documents, reports                                 | Merged, PR #7 |
+| 8     | Security hardening, automations, integrations, performance, testing, deployment | In progress   |
 
 The original request includes extensive details within each phase. The implementation should preserve that scope rather than treating this table as permission to omit it. External payment processing, outbound notifications, Google authentication, object storage and scheduled infrastructure require separately configured provider capabilities. Free operation and no purchases remain binding constraints. Provider-dependent features must never claim success without a provider delivery result.
 
@@ -52,3 +52,9 @@ Phase 7 persists inventory catalogs/suppliers, nonnegative immutable movements, 
 Free document storage is deliberately small: 128 KiB per PDF/PNG/JPEG version, 20 retained versions per document, 1000 document records per organization. Signature checks are not malware scanning. Downloaded files remain untrusted. A dedicated, stable DOCUMENT_ENCRYPTION_KEY must be stored securely by the deployment operator and included in protected recovery procedures. Missing/wrong keys fail closed. D1 storage and daily reads remain shared with other applications. This is not unlimited object storage.
 
 Remaining detailed scope is still binding: scheduled reports and expiry notifications need phase 8 automation; current in-view expiry warnings are not background delivery. Inventory valuation is standard catalog cost, not FIFO or a perpetual inventory ledger. Purchase receipt changes stock but does not automatically create/settle a supplier payable; finance retains its separate approval and settlement workflow. Physical dispatch does not charge a payment gateway; returns never silently refund an invoice. Library penalties are records, not collected money. Cross-center analytics explicitly label current counts versus historical cohort retention, room booked minutes versus utilization capacity, and lesson progress versus certified completion. Final release must finish or clearly hold those unmet detailed requirements rather than claim commercial completeness.
+
+## Phase 8 progress and remaining gates
+
+Implemented locally: password change and session revocation, successful-login history, optional authenticator MFA with replay protection and one-time recovery codes, permission-scoped prefix search, deduplicated in-app expiry/payment/library reminders, private report digests, opt-in bounded scheduler, and isolated local backup/restore rehearsal. The focused additive D1 index migration is tracked separately in PR #8. See SECURITY-OPERATIONS.md for limits and deployment sequencing.
+
+Not finished: email recovery/verification, Google sign-in, external providers, production backup scheduling/retention and restore drill, live D1/application validation, load/security review, and settings depth such as custom fields, tax configuration and editable print templates. Earlier phase detail remains binding; phase labels do not remove these requirements. No external delivery, money movement or production migration has occurred as part of this local work.

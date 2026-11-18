@@ -1,0 +1,16 @@
+CREATE TABLE el_automation_events(id TEXT PRIMARY KEY,org_id TEXT NOT NULL,user_id TEXT NOT NULL,kind TEXT NOT NULL,entity_id TEXT NOT NULL,period TEXT NOT NULL,created_at INTEGER NOT NULL,UNIQUE(org_id,user_id,kind,entity_id,period),FOREIGN KEY(org_id,user_id) REFERENCES el_memberships(org_id,user_id));
+CREATE TABLE el_automation_runs(id TEXT PRIMARY KEY,org_id TEXT NOT NULL,started_at INTEGER NOT NULL,completed_at INTEGER NOT NULL,created_count INTEGER NOT NULL,triggered_by TEXT NOT NULL);
+CREATE INDEX el_automation_runs_lookup ON el_automation_runs(org_id,started_at DESC);
+CREATE INDEX el_automation_events_lookup ON el_automation_events(org_id,kind,period);
+CREATE TABLE el_report_schedules(id TEXT PRIMARY KEY,org_id TEXT NOT NULL,user_id TEXT NOT NULL,branch_id TEXT,name TEXT NOT NULL,frequency TEXT NOT NULL CHECK(frequency IN ('daily','weekly','monthly')),status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active','paused')),created_at INTEGER NOT NULL,UNIQUE(org_id,id),FOREIGN KEY(org_id,user_id) REFERENCES el_memberships(org_id,user_id),FOREIGN KEY(org_id,branch_id) REFERENCES el_branches(org_id,id));
+CREATE INDEX el_report_schedules_org ON el_report_schedules(org_id,status,user_id);
+CREATE TABLE el_job_state(name TEXT PRIMARY KEY,cursor TEXT NOT NULL DEFAULT '');
+CREATE INDEX el_audit_entity ON el_audit(org_id,entity,entity_id,created_at);
+CREATE TABLE el_automation_settings(org_id TEXT PRIMARY KEY REFERENCES el_organizations(id),enabled INTEGER NOT NULL DEFAULT 0 CHECK(enabled IN (0,1)));
+CREATE TABLE el_report_snapshots(id TEXT PRIMARY KEY,org_id TEXT NOT NULL,user_id TEXT NOT NULL,schedule_id TEXT NOT NULL,branch_id TEXT,period TEXT NOT NULL,name TEXT NOT NULL,payload_json TEXT NOT NULL,created_at INTEGER NOT NULL,UNIQUE(schedule_id,period),FOREIGN KEY(org_id,schedule_id) REFERENCES el_report_schedules(org_id,id),FOREIGN KEY(org_id,user_id) REFERENCES el_memberships(org_id,user_id));
+CREATE INDEX el_report_snapshots_user ON el_report_snapshots(org_id,user_id,created_at DESC);
+CREATE TABLE el_login_history(id TEXT PRIMARY KEY,org_id TEXT NOT NULL,user_id TEXT NOT NULL,branch_id TEXT,user_agent TEXT NOT NULL,ip TEXT NOT NULL DEFAULT '',created_at INTEGER NOT NULL,FOREIGN KEY(org_id,user_id) REFERENCES el_memberships(org_id,user_id));
+CREATE INDEX el_login_history_user ON el_login_history(user_id,created_at DESC);
+CREATE INDEX el_employees_search ON el_employees(org_id,name COLLATE NOCASE);
+CREATE INDEX el_tickets_search ON el_support_tickets(org_id,subject COLLATE NOCASE);
+CREATE INDEX el_documents_search ON el_documents(org_id,title COLLATE NOCASE);

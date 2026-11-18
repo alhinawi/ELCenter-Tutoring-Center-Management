@@ -1,14 +1,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import app from "../src/server/app";
 import { sqliteDatabase } from "../scripts/sqlite";
 const { raw, db } = sqliteDatabase();
-for (const file of [
-  "0001_foundation.sql",
-  "0002_academic_core.sql",
-  "0003_demo_mode.sql",
-])
+for (const file of readdirSync("migrations")
+  .filter((f) => f.endsWith(".sql"))
+  .sort())
   raw.exec(readFileSync("migrations/" + file, "utf8"));
 let cookie = "",
   csrf = "";

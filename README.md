@@ -2,7 +2,7 @@
 
 A bilingual, multi-branch education operations platform. Next.js and Tailwind on the frontend, Hono Pages Functions and a relational Cloudflare D1 database on the server.
 
-## Working release: Connected operations, portals and learning
+## Working release: Connected operations, portals, resources and security
 
 - Organization creation and real email/password authentication, salted PBKDF2 hashes, hashed sessions, HttpOnly cookies and CSRF checks.
 - 18 seeded roles, configurable custom roles and granular server-checked permissions. Branch-scoped memberships and organization isolation.
@@ -72,7 +72,7 @@ No payment processor, email/SMS/WhatsApp provider, paid infrastructure, Redis or
 
 Authorization is enforced on every server route, not by hiding navigation. Login/register/demo endpoints have persisted rate limits. Critical writes and their audit records are atomic batches. Database foreign keys include organization identifiers where needed to prevent cross-organization references.
 
-Recovery, email verification, Google sign-in, MFA, backup automation and production load testing are scheduled work, not represented as finished. Password reset cannot send email without an approved email provider. Use fictional data during development.
+Optional authenticator MFA, one-time recovery codes, private session revocation, successful-login history, password change and a local isolated backup/restore rehearsal are implemented. Email password reset/verification, Google sign-in, production backup automation and load testing remain unfinished. Password reset cannot send email without an approved email provider. Use fictional data during development.
 
 ## Media
 
@@ -89,3 +89,7 @@ Calendar interaction uses FullCalendar's MIT-licensed packaged styles. All appli
 After phase 6 migration 0008, phase 7 applies 0009_resources_service.sql, 0010_inventory.sql and 0011_library.sql in order using the existing el_migrations history. Only el_ objects are affected. Configure DOCUMENT_ENCRYPTION_KEY as a protected production secret before allowing document uploads. Keep it stable and back it up outside the repository. Losing or rotating it without re-encryption makes prior uploads unreadable. Do not put its value in source, logs or chat.
 
 The document store accepts 1–128 KiB PDF/PNG/JPEG versions, at most 20 per document and 1000 documents per organization. All versions are retained, encrypted and downloaded as attachments with no-store headers. File signatures do not prove malware safety. Free database capacity and daily operations are shared limits, so these are application caps, not reserved storage. Resource demo records carry explicit flags; real references block atomic cleanup.
+
+### Security, automation and recovery
+
+See [the operational runbook](docs/SECURITY-OPERATIONS.md) for authenticator recovery, key preservation, opt-in in-app automation, saved digests, the optional hourly Worker, local backup rehearsal and the open production release gates. No external provider delivery or automated production backup is claimed.
