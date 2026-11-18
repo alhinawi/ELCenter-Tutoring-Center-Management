@@ -1,3 +1,4 @@
+import { registerCustomFields } from "./custom-fields";
 import { registerMfa, verifyMfa } from "./mfa";
 import { registerSystem } from "./system";
 import { registerResourceDemo } from "./demo-resources";
@@ -75,6 +76,15 @@ app.onError((e, c) => {
           "",
         ),
       },
+      409,
+    );
+  if (
+    /Custom field (?:limit reached|is archived|type and identity are immutable)/.test(
+      String(e),
+    )
+  )
+    return c.json(
+      { error: "Custom field definition changed. Reload before saving." },
       409,
     );
   if (String(e).includes("FOREIGN KEY constraint"))
@@ -843,6 +853,7 @@ registerInventory(app);
 registerLibrary(app);
 registerReports(app);
 registerSystem(app);
+registerCustomFields(app);
 registerMfa(app);
 registerDocuments(app);
 registerLms(app);

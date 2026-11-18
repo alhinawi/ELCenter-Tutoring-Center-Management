@@ -1,5 +1,6 @@
 "use client";
 import Operations from "./operations";
+import { CustomFieldDefinitions } from "./custom-fields";
 import { SystemControls } from "./system-controls";
 import Resources from "./resources";
 import { Portal, LearningSpace, PortalAdmin } from "./portals";
@@ -545,6 +546,7 @@ export default function Workspace() {
               reload={load}
               toast={toast}
               editable={allowed("organization", "edit")}
+              manageFields={allowed("organization", "manage")}
             />
           ) : tab === "users" ? (
             <Team
@@ -1326,6 +1328,7 @@ function Branches({
   );
 }
 function Organization({
+  manageFields,
   t,
   org,
   api,
@@ -1339,6 +1342,7 @@ function Organization({
   reload: () => Promise<void>;
   toast: () => void;
   editable: boolean;
+  manageFields: boolean;
 }) {
   const [busy, setBusy] = useState(false),
     [err, setErr] = useState("");
@@ -1363,6 +1367,11 @@ function Organization({
   return (
     <>
       <Heading title={t.organization} sub={t.organizationHelp} />
+      <CustomFieldDefinitions
+        api={api}
+        ar={t.language === "English"}
+        editable={manageFields}
+      />
       {editable && (
         <Card className="mb-6 flex max-w-3xl items-center justify-between gap-5 p-6">
           <div>
