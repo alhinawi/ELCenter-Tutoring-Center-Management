@@ -1,4 +1,5 @@
 "use client";
+import { FamilyAttendanceHistory } from "./family-attendance-history";
 import { FamilyResultHistory } from "./family-result-history";
 import { OrganizationLogo } from "./organization-logo";
 import { ProfilePhoto } from "./profile-photo";
@@ -647,8 +648,8 @@ export function Portal({
                 </div>
                 <p className="text-xs leading-6 text-slate-500">
                   {L(
-                    "Overview totals include all eligible records. Other lists are bounded previews: first100 active/completed enrollments by group name, first100 sessions from yesterday through120 days ahead, latest200 attendance records, latest100 non-draft invoices and your latest50 center requests. Results below have separate complete page navigation. Lists and totals are live reads, not an archived statement.",
-                    "إجماليات الملخص بتشمل كل السجلات المناسبة. القوائم التانية معاينات محدودة: أول100 تسجيل نشط أو مكتمل بترتيب المجموعة، أول100 حصة من إمبارح ولحد120 يوم قدام، آخر200 سجل حضور، آخر100 فاتورة مش مسودة، وآخر50 طلب للمركز ليك. النتايج تحت ليها صفحات مستقلة للسجل كله. القوائم والإجماليات قراءة مباشرة مش كشف مؤرشف.",
+                    "Overview totals include all eligible records. Other lists are bounded previews: first100 active/completed enrollments by group name, first100 sessions from yesterday through120 days ahead, latest100 non-draft invoices and your latest50 center requests. Results and attendance below have separate complete page navigation. Lists and totals are live reads, not an archived statement.",
+                    "إجماليات الملخص بتشمل كل السجلات المناسبة. القوائم التانية معاينات محدودة: أول100 تسجيل نشط أو مكتمل بترتيب المجموعة، أول100 حصة من إمبارح ولحد120 يوم قدام، آخر100 فاتورة مش مسودة، وآخر50 طلب للمركز ليك. النتايج والحضور تحت ليهم صفحات مستقلة للسجل كله. القوائم والإجماليات قراءة مباشرة مش كشف مؤرشف.",
                   )}
                 </p>
                 <div className="grid gap-6 lg:grid-cols-2">
@@ -696,34 +697,15 @@ export function Portal({
                   </Panel>
                 </div>
                 <Panel title={L("Attendance history", "سجل الحضور")}>
-                  {family.attendance.length ? (
-                    <Table
-                      heads={[
-                        L("Group", "المجموعة"),
-                        L("Session", "الحصة"),
-                        L("Status", "الحالة"),
-                        L("Correction", "تصحيح"),
-                      ]}
-                      rows={family.attendance.map((r: Row) => [
-                        r.group_name,
-                        date(r.starts_at),
-                        <Badge ar={ar} value={r.status} />,
-                        <button
-                          className="text-sm font-medium text-blue-700 dark:text-blue-300"
-                          onClick={() => setCorrection(r)}
-                        >
-                          {L("Request / history", "طلب / السجل")}
-                        </button>,
-                      ])}
-                    />
-                  ) : (
-                    <Empty>
-                      {L(
-                        "Attendance records will appear after your first session.",
-                        "سجل الحضور هيظهر بعد أول حصة.",
-                      )}
-                    </Empty>
-                  )}
+                  <FamilyAttendanceHistory
+                    key={family.student.id}
+                    id={family.student.id}
+                    name={family.student.name}
+                    api={p.api}
+                    ar={ar}
+                    timezone={p.timezone}
+                    correction={setCorrection}
+                  />
                 </Panel>
                 <Panel
                   title={L(
