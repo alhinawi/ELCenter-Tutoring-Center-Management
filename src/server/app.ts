@@ -1,3 +1,4 @@
+import { registerCoursePrerequisites } from "./course-prerequisites";
 import { registerAttendanceCorrections } from "./attendance-corrections";
 import { registerOrganizationProfile } from "./organization-profile";
 import { registerCustomFields } from "./custom-fields";
@@ -94,6 +95,14 @@ app.onError((e, c) => {
       {
         error:
           "Attendance changes require an independent approved correction. Reload the record if it changed.",
+      },
+      409,
+    );
+  if (/Course prerequisite/.test(String(e)))
+    return c.json(
+      {
+        error:
+          "Course prerequisite rule failed: completion required, inactive course, cycle or limit.",
       },
       409,
     );
@@ -875,6 +884,7 @@ registerInventory(app);
 registerLibrary(app);
 registerReports(app);
 registerSystem(app);
+registerCoursePrerequisites(app);
 registerAttendanceCorrections(app);
 registerCustomFields(app);
 registerOrganizationProfile(app);
