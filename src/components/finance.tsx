@@ -106,7 +106,8 @@ export default function Finance({
       return { from: year + "-01-01", to: year + "-12-31" };
     }),
     [paymentKey, setPaymentKey] = useState(""),
-    [refund, setRefund] = useState<Row | null>(null);
+    [refund, setRefund] = useState<Row | null>(null),
+    [ledgerCursors, setLedgerCursors] = useState<(string | null)[]>([null]);
   const today = new Intl.DateTimeFormat("en-CA", {
     timeZone: timezone,
     year: "numeric",
@@ -150,7 +151,7 @@ export default function Finance({
             : section === "settings"
               ? "/finance/settings"
               : section === "ledger"
-                ? `/finance/ledger?from=${dates.from}&to=${dates.to}`
+                ? `/finance/ledger?from=${dates.from}&to=${dates.to}${ledgerCursors.at(-1) ? "&cursor=" + encodeURIComponent(ledgerCursors.at(-1)!) : ""}`
                 : `/finance/reports?from=${dates.from}&to=${dates.to}`;
     let active = true;
     api(path)
@@ -163,7 +164,61 @@ export default function Finance({
     return () => {
       active = false;
     };
-  }, [section, version, page, dates]);
+  }, [section, version, page, dates, ledgerCursors]);
+  function exportLedgerPage() {
+    if (!data?.data.length) return;
+    const cell = (v: unknown) => {
+      let s = String(v ?? "");
+      if (/^(?:\s*[=+@\-]|[\t\r])/.test(s)) s = "'" + s;
+      return '"' + s.replaceAll('"', '""') + '"';
+    };
+    const rows = [
+      [
+        "Date",
+        "Journal",
+        "Reference",
+        "Memo",
+        "Branch",
+        "Account code",
+        "Account name",
+        "Debit",
+        "Credit",
+        "Source",
+        "Reversal of",
+      ],
+      ...data.data.map((r: Row) => [
+        r.date,
+        r.id,
+        r.reference,
+        r.memo,
+        r.branch_id,
+        r.code,
+        r.account_name,
+        r.debit,
+        r.credit,
+        r.source_type,
+        r.reverse_of,
+      ]),
+    ];
+    const url = URL.createObjectURL(
+      new Blob(
+        ["\uFEFF" + rows.map((r) => r.map(cell).join(",")).join("\r\n")],
+        { type: "text/csv;charset=utf-8" },
+      ),
+    );
+    const link = document.createElement("a");
+    link.href = url;
+    link.download =
+      "ledger-page-" +
+      ledgerCursors.length +
+      "-" +
+      dates.from +
+      "-" +
+      dates.to +
+      ".csv";
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
   async function command(path: string, method: string, body: unknown) {
     setBusy(true);
     setError("");
@@ -248,6 +303,7 @@ export default function Finance({
               onClick={() => {
                 setSection(s);
                 setPage(1);
+                setLedgerCursors([null]);
               }}
               aria-current={section === s ? "page" : undefined}
               className={`shrink-0 rounded-xl px-4 py-3 text-xs font-semibold ${section === s ? "bg-blue-700 text-white" : "border border-slate-200 bg-white text-slate-500 dark:border-slate-800 dark:bg-slate-900"}`}
@@ -298,6 +354,7 @@ export default function Finance({
             onSubmit={(e) => {
               e.preventDefault();
               const d = Object.fromEntries(new FormData(e.currentTarget));
+              setLedgerCursors([null]);
               setDates({ from: String(d.from), to: String(d.to) });
             }}
           >
@@ -521,7 +578,21 @@ export default function Finance({
         </Card>
       ) : section === "ledger" ? (
         <>
-          <div className="mb-4 flex justify-end">
+          <p className="mb-4 text-sm leading-7 text-slate-500">
+            {L(
+              "Each page contains up to 25 complete journals, including every line. Page CSV exports only the visible page, not the full ledger. Newly posted entries may require a refresh; pagination is not a point-in-time accounting snapshot.",
+              "كل صفحة فيها لحد 25 قيد كامل بكل السطور. تصدير CSV للصفحة الظاهرة بس، مش دفتر الحسابات كله. القيود الجديدة ممكن تحتاج تحديث؛ التصفح مش لقطة حسابية ثابتة في وقت واحد.",
+            )}
+          </p>
+          <div className="mb-4 flex flex-wrap justify-end gap-3">
+            <Button onClick={() => setLedgerCursors([null])}>
+              {L("Refresh ledger", "تحديث الدفتر")}
+            </Button>
+            {allowed("finance", "export") && (
+              <Button disabled={!data.data.length} onClick={exportLedgerPage}>
+                {L("Export this page CSV", "تصدير الصفحة CSV")}
+              </Button>
+            )}
             {allowed("finance", "approve") && (
               <Button onClick={() => setForm("journal")}>
                 <Plus size={16} />
@@ -550,7 +621,7 @@ export default function Finance({
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                   {data.data.map((r: Row, i: number) => (
-                    <tr key={r.id + ":" + i}>
+                    <tr key={r.line_id ?? r.id + ":" + i}>
                       <td className="p-4" dir="ltr">
                         {r.date}
                       </td>
@@ -592,6 +663,24 @@ export default function Finance({
               </p>
             )}
           </Card>
+          <div className="mt-4 flex items-center justify-between gap-3">
+            <Button
+              disabled={ledgerCursors.length === 1}
+              onClick={() => setLedgerCursors((v) => v.slice(0, -1))}
+            >
+              {L("Previous ledger page", "صفحة الدفتر السابقة")}
+            </Button>
+            <span className="text-xs text-slate-500">
+              {L("Page", "صفحة")} {ledgerCursors.length} · {data.journal_count}{" "}
+              {L("journals", "قيد")}
+            </span>
+            <Button
+              disabled={!data.next_cursor}
+              onClick={() => setLedgerCursors((v) => [...v, data.next_cursor])}
+            >
+              {L("Next ledger page", "صفحة الدفتر التالية")}
+            </Button>
+          </div>
         </>
       ) : section === "expenses" ? (
         <div className="grid gap-4 md:grid-cols-2">

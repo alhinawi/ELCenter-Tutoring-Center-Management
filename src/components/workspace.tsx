@@ -401,7 +401,7 @@ export default function Workspace() {
             >
               <Menu size={21} />
             </button>
-            <div className="min-w-0">
+            <div className="hidden min-w-0 sm:block">
               <p className="max-w-[220px] truncate text-xs text-slate-400">
                 {me.organization.display_name || me.organization.name}
               </p>
