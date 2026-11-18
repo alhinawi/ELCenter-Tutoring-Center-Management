@@ -504,6 +504,7 @@ export default function Workspace() {
             />
           ) : tab === "finance" ? (
             <Finance
+              headquarters={!me.user.branch_id}
               t={t}
               api={api}
               allowed={allowed}

@@ -1,4 +1,5 @@
 "use client";
+import { InvoicePrintHeader, InvoicePrintFooter } from "./invoice-print";
 import { Support, Documents } from "./resources";
 import { Temporal } from "@js-temporal/polyfill";
 import { useEffect, useState, useRef, type ReactNode } from "react";
@@ -827,9 +828,7 @@ export function Portal({
         {invoice && (
           <Dialog title={invoice.data.number} close={() => setInvoice(null)}>
             <div id="portal-invoice">
-              <h2 className="mb-3 text-xl font-semibold">
-                {organization.name}
-              </h2>
+              <InvoicePrintHeader snapshot={invoice.print_snapshot} ar={ar} />
               <p>
                 {invoice.student.name} · {invoice.data.date} ·{" "}
                 {invoice.data.number}
@@ -851,6 +850,7 @@ export function Portal({
               <p className="my-5 font-semibold">
                 {L("Total", "الإجمالي")}: {money(invoice.data.total)}
               </p>
+              <InvoicePrintFooter snapshot={invoice.print_snapshot} ar={ar} />
               {invoice.installments.length > 0 && (
                 <>
                   <h3 className="mb-3 font-semibold">
@@ -888,6 +888,13 @@ export function Portal({
                   money(r.amount),
                 ])}
               />
+              {!!invoice.payments.length && (
+                <InvoicePrintFooter
+                  snapshot={invoice.print_snapshot}
+                  ar={ar}
+                  receipt
+                />
+              )}
             </div>
             <Button
               onClick={() =>
