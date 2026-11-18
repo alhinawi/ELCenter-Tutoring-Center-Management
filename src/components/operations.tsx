@@ -1,4 +1,5 @@
 "use client";
+import { ZeroPayrollClosure } from "./zero-payroll";
 import { Temporal } from "@js-temporal/polyfill";
 import { useEffect, useState } from "react";
 import {
@@ -637,7 +638,9 @@ export default function Operations({
                     </h2>
                   </div>
                   <span className="shrink-0 rounded-full bg-slate-100 px-2 py-1 text-[10px] text-slate-500 dark:bg-slate-800">
-                    {r.stage || r.status || r.type || r.channel || ""}
+                    {r.zero_closed_on
+                      ? L("Closed / no payment", "مغلق / بدون صرف")
+                      : r.stage || r.status || r.type || r.channel || ""}
                   </span>
                 </div>
                 {r.purpose && (
@@ -686,6 +689,14 @@ export default function Operations({
                       {money(r.total)}
                     </p>
                     <p className="mt-2 text-xs text-slate-400">{r.month}</p>
+                    {r.zero_closed_on && (
+                      <p className="my-4 whitespace-pre-wrap break-words text-sm text-slate-500">
+                        {L("Closed without payment", "اتقفل بدون صرف")} ·{" "}
+                        {r.zero_closed_on}
+                        <br />
+                        {r.zero_closure_reason}
+                      </p>
+                    )}
                     <details className="mt-3 text-xs">
                       <summary>
                         {L("Calculation snapshot", "تفاصيل الحسبة")}
@@ -734,6 +745,21 @@ export default function Operations({
                     )}
                   {section === "staff_payroll" &&
                     r.status === "approved" &&
+                    !r.zero_closed_on &&
+                    r.total === 0 &&
+                    allowed("finance", "approve") && (
+                      <ZeroPayrollClosure
+                        api={api}
+                        ar={ar}
+                        id={r.id}
+                        kind="staff-payroll"
+                        onSaved={() => setVersion((v) => v + 1)}
+                      />
+                    )}
+                  {section === "staff_payroll" &&
+                    r.status === "approved" &&
+                    !r.zero_closed_on &&
+                    r.total > 0 &&
                     allowed("finance", "approve") && (
                       <Button
                         onClick={() => setForm({ table: "staff-pay", row: r })}

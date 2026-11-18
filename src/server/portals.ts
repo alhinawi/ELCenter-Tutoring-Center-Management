@@ -305,7 +305,7 @@ export function registerPortals(app: Hono<any>) {
     ).results;
     const payroll = (
       await c.env.DB.prepare(
-        "SELECT month,base_amount,bonus,deduction,total,status,calculation_json FROM el_payroll WHERE org_id=? AND teacher_id=? AND status<>'draft' AND (? IS NULL OR branch_id=?) ORDER BY month DESC LIMIT 24",
+        "SELECT p.month,p.base_amount,p.bonus,p.deduction,p.total,CASE WHEN z.id IS NOT NULL THEN 'closed_zero' ELSE p.status END status,p.calculation_json FROM el_payroll p LEFT JOIN el_zero_payroll_closures z ON z.org_id=p.org_id AND z.teacher_payroll_id=p.id WHERE p.org_id=? AND p.teacher_id=? AND p.status<>'draft' AND (? IS NULL OR p.branch_id=?) ORDER BY p.month DESC LIMIT 24",
       )
         .bind(a.org_id, link.teacher_id, a.branch_id, a.branch_id)
         .all()

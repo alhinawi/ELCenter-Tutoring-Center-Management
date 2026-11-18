@@ -41,7 +41,7 @@ export function registerStaffPayroll(app: Hono<any>) {
     return c.json({
       data: (
         await c.env.DB.prepare(
-          "SELECT p.*,e.name FROM el_staff_payroll p JOIN el_employees e ON e.id=p.employee_id WHERE p.org_id=? AND (? IS NULL OR p.branch_id=?) ORDER BY p.month DESC,p.created_at DESC LIMIT 100",
+          "SELECT p.*,e.name,z.closed_on zero_closed_on,z.reason zero_closure_reason FROM el_staff_payroll p JOIN el_employees e ON e.id=p.employee_id LEFT JOIN el_zero_payroll_closures z ON z.org_id=p.org_id AND z.staff_payroll_id=p.id WHERE p.org_id=? AND (? IS NULL OR p.branch_id=?) ORDER BY p.month DESC,p.created_at DESC LIMIT 100",
         )
           .bind(a.org_id, a.branch_id, a.branch_id)
           .all()
@@ -239,7 +239,9 @@ export function registerStaffPayroll(app: Hono<any>) {
           "Payment cannot precede payroll accrual",
         );
       }
-      const ac = await accounts(c);
+      if (action === "pay")
+        assert(p.total > 0, 409, "Zero payroll must close without payment");
+      const ac = p.total ? await accounts(c) : null;
       const j = p.total
         ? await journal(c, {
             branch: p.branch_id,
@@ -255,13 +257,13 @@ export function registerStaffPayroll(app: Hono<any>) {
             lines:
               action === "approve"
                 ? [
-                    { account: ac.payroll_expense, debit: p.total, credit: 0 },
-                    { account: ac.payroll_payable, debit: 0, credit: p.total },
+                    { account: ac!.payroll_expense, debit: p.total, credit: 0 },
+                    { account: ac!.payroll_payable, debit: 0, credit: p.total },
                   ]
                 : [
-                    { account: ac.payroll_payable, debit: p.total, credit: 0 },
+                    { account: ac!.payroll_payable, debit: p.total, credit: 0 },
                     {
-                      account: d.method === "cash" ? ac.cash : ac.bank,
+                      account: d.method === "cash" ? ac!.cash : ac!.bank,
                       debit: 0,
                       credit: p.total,
                     },
