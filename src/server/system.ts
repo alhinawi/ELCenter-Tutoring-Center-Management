@@ -1,4 +1,5 @@
 import type { Hono } from "hono";
+import { upcomingExamReminders } from "./exam-reminders";
 import { getCookie } from "hono/cookie";
 import { z } from "zod";
 import { Temporal } from "@js-temporal/polyfill";
@@ -100,7 +101,7 @@ export async function runAutomation(
     });
   const rules = await db
     .prepare(
-      "SELECT lead_followups,contract_expiry,low_stock,contract_days FROM el_automation_settings WHERE org_id=?",
+      "SELECT lead_followups,contract_expiry,low_stock,contract_days,upcoming_exams,exam_days FROM el_automation_settings WHERE org_id=?",
     )
     .bind(org)
     .first<{
@@ -200,6 +201,7 @@ export async function runAutomation(
         ],
       },
     });
+  candidates.push(...(await upcomingExamReminders(db, org, time, zone)));
   const schedules = (
     await db
       .prepare(
@@ -469,7 +471,7 @@ export function registerSystem(app: Hono<any>) {
           .first<{ enabled: number }>()
       )?.enabled,
       rules: (await c.env.DB.prepare(
-        "SELECT lead_followups,contract_expiry,low_stock,contract_days FROM el_automation_settings WHERE org_id=?",
+        "SELECT lead_followups,contract_expiry,low_stock,contract_days,upcoming_exams,exam_days FROM el_automation_settings WHERE org_id=?",
       )
         .bind(a.org_id)
         .first()) ?? {
@@ -477,6 +479,8 @@ export function registerSystem(app: Hono<any>) {
         contract_expiry: 0,
         low_stock: 0,
         contract_days: 30,
+        upcoming_exams: 0,
+        exam_days: 7,
       },
       scheduler_status: "Check deployment status with your operator",
     });
@@ -492,13 +496,15 @@ export function registerSystem(app: Hono<any>) {
         contract_expiry: z.boolean().optional(),
         low_stock: z.boolean().optional(),
         contract_days: z.number().int().min(1).max(90).optional(),
+        upcoming_exams: z.boolean().optional(),
+        exam_days: z.number().int().min(1).max(14).optional(),
       })
       .parse(await c.req.json());
     const flag = (b: boolean | undefined) =>
       b === undefined ? null : b ? 1 : 0;
     await c.env.DB.batch([
       c.env.DB.prepare(
-        "INSERT INTO el_automation_settings(org_id,enabled,lead_followups,contract_expiry,low_stock,contract_days) VALUES(?,?,COALESCE(?,0),COALESCE(?,0),COALESCE(?,0),COALESCE(?,30)) ON CONFLICT(org_id) DO UPDATE SET enabled=excluded.enabled,lead_followups=COALESCE(?,lead_followups),contract_expiry=COALESCE(?,contract_expiry),low_stock=COALESCE(?,low_stock),contract_days=COALESCE(?,contract_days)",
+        "INSERT INTO el_automation_settings(org_id,enabled,lead_followups,contract_expiry,low_stock,contract_days,upcoming_exams,exam_days) VALUES(?,?,COALESCE(?,0),COALESCE(?,0),COALESCE(?,0),COALESCE(?,30),COALESCE(?,0),COALESCE(?,7)) ON CONFLICT(org_id) DO UPDATE SET enabled=excluded.enabled,lead_followups=COALESCE(?,lead_followups),contract_expiry=COALESCE(?,contract_expiry),low_stock=COALESCE(?,low_stock),contract_days=COALESCE(?,contract_days),upcoming_exams=COALESCE(?,upcoming_exams),exam_days=COALESCE(?,exam_days)",
       ).bind(
         a.org_id,
         d.enabled ? 1 : 0,
@@ -506,10 +512,14 @@ export function registerSystem(app: Hono<any>) {
         flag(d.contract_expiry),
         flag(d.low_stock),
         d.contract_days ?? null,
+        flag(d.upcoming_exams),
+        d.exam_days ?? null,
         flag(d.lead_followups),
         flag(d.contract_expiry),
         flag(d.low_stock),
         d.contract_days ?? null,
+        flag(d.upcoming_exams),
+        d.exam_days ?? null,
       ),
       audit(c, "automation", a.org_id, "settings", null, d),
     ]);

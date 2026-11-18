@@ -338,8 +338,8 @@ export function SystemControls({
               <div className="space-y-5">
                 <p className="text-sm leading-7 text-slate-500">
                   {L(
-                    "Only in-app reminders: expiring documents to their uploader, due invoices/library returns to linked families, assigned lead follow-ups, contract expiry to HR, low stock to inventory staff, and saved report digests. No email, SMS or WhatsApp is sent. Up to 100 records per kind each run. A separately deployed scheduler is required for automatic runs.",
-                    "تذكيرات داخل التطبيق بس: انتهاء المستندات للي رفعها، الفواتير والكتب المستحقة للأسر المرتبطة، متابعة العملاء للمسؤول، انتهاء العقود للموارد البشرية، المخزون المنخفض للمخازن، وملخصات التقارير المحفوظة. مفيش إرسال بريد أو SMS أو واتساب. لحد 100 سجل من كل نوع في التشغيل. التشغيل التلقائي محتاج نشر خدمة الجدولة بشكل منفصل.",
+                    "Only in-app reminders: expiring documents to their uploader, due invoices/library returns to linked families, assigned lead follow-ups, contract expiry to HR, low stock to inventory staff, upcoming exams to linked families, and saved report digests. No email, SMS or WhatsApp is sent. Up to 100 records per kind each run. A separately deployed scheduler is required for automatic runs.",
+                    "تذكيرات داخل التطبيق بس: انتهاء المستندات للي رفعها، الفواتير والكتب المستحقة للأسر المرتبطة، متابعة العملاء للمسؤول، انتهاء العقود للموارد البشرية، المخزون المنخفض للمخازن، الامتحانات القريبة للأسر المرتبطة، وملخصات التقارير المحفوظة. مفيش إرسال بريد أو SMS أو واتساب. لحد 100 سجل من كل نوع في التشغيل. التشغيل التلقائي محتاج نشر خدمة الجدولة بشكل منفصل.",
                   )}
                 </p>
                 <label className="flex items-center gap-3 text-sm">
@@ -374,13 +374,15 @@ export function SystemControls({
                         contract_expiry: fd.has("contract_expiry"),
                         low_stock: fd.has("low_stock"),
                         contract_days: Number(fd.get("contract_days")),
+                        upcoming_exams: fd.has("upcoming_exams"),
+                        exam_days: Number(fd.get("exam_days")),
                       },
                       "PUT",
                     );
                   }}
                 >
                   <h3 className="font-semibold">
-                    {L("Staff reminder rules", "قواعد تذكيرات الموظفين")}
+                    {L("Reminder rules", "قواعد التذكيرات")}
                   </h3>
                   {(
                     [
@@ -393,6 +395,13 @@ export function SystemControls({
                         L(
                           "Contract expiry for HR",
                           "انتهاء العقود للموارد البشرية",
+                        ),
+                      ],
+                      [
+                        "upcoming_exams",
+                        L(
+                          "Upcoming exams for linked families",
+                          "الامتحانات القريبة للأسر المرتبطة",
                         ),
                       ],
                       [
@@ -433,6 +442,28 @@ export function SystemControls({
                       defaultValue={jobs.rules.contract_days}
                     />
                   </Field>
+                  <Field
+                    label={L(
+                      "Exam notice days (1–14)",
+                      "التنبيه قبل الامتحان بالأيام (1–14)",
+                    )}
+                  >
+                    <Input
+                      name="exam_days"
+                      type="number"
+                      required
+                      min={1}
+                      max={14}
+                      step={1}
+                      defaultValue={jobs.rules.exam_days}
+                    />
+                  </Field>
+                  <p className="text-xs leading-6 text-slate-500">
+                    {L(
+                      "Exam notices go only to currently enrolled linked students and guardians, once per exam, student, recipient and scheduled time. Published upcoming exams only. A reschedule gets a fresh notice, not a cancellation alert.",
+                      "تذكير الامتحان للطلاب المسجلين حالياً وأولياء الأمور المرتبطين بس، مرة لكل امتحان وطالب ومستلم وميعاد. الامتحانات المنشورة والقادمة بس. تغيير الميعاد بيعمل تذكير جديد، مش إشعار إلغاء.",
+                    )}
+                  </p>
                   <p className="text-xs leading-6 text-slate-500">
                     {L(
                       "Staff rules default off. Lead reminders are once per due date and recipient. Contracts are once per end date and recipient. Low stock is once per branch, item and recipient each month, including zero at a zero reorder level. Only existing stock balance records are checked. Saving rules does not run them. Manual runs also respect these rules.",
