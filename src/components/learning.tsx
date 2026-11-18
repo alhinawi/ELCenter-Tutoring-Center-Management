@@ -910,6 +910,12 @@ export function Assessments({
   const ar = t.language === "English",
     L = (a: string, b: string) => (ar ? b : a);
   const [data, setData] = useState<Row[]>([]),
+    [page, setPage] = useState(1),
+    [total, setTotal] = useState(0),
+    [q, setQ] = useState(""),
+    [status, setStatus] = useState(""),
+    [group, setGroup] = useState(""),
+    [loading, setLoading] = useState(true),
     [groups, setGroups] = useState<Row[]>([]),
     [edit, setEdit] = useState<Row | null>(null),
     [detail, setDetail] = useState<Row | null>(null),
@@ -920,12 +926,49 @@ export function Assessments({
     [performance, setPerformance] = useState<Row[] | null>(null);
   const reload = () => setVersion((v) => v + 1);
   useEffect(() => {
-    api("/exams")
-      .then((d) => setData(d.data))
-      .catch((e) => setError(e.message));
+    let active = true;
+    setData([]);
+    setTotal(0);
+    setLoading(true);
+    setError("");
+    api(
+      "/exams?page=" +
+        page +
+        "&q=" +
+        encodeURIComponent(q) +
+        "&status=" +
+        status +
+        "&group=" +
+        group,
+    )
+      .then((r) => {
+        if (active) {
+          setData(r.data);
+          setTotal(r.total);
+        }
+      })
+      .catch((e) => {
+        if (active) setError(e.message);
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [page, q, status, group, version]);
+  useEffect(() => {
+    let active = true;
     api("/academic/options")
-      .then((d) => setGroups(d.groups ?? []))
-      .catch((e) => setError(e.message));
+      .then((d) => {
+        if (active) setGroups(d.groups ?? []);
+      })
+      .catch((e) => {
+        if (active) setError(e.message);
+      });
+    return () => {
+      active = false;
+    };
   }, [version]);
   async function open(id: string) {
     setError("");
@@ -961,7 +1004,7 @@ export function Assessments({
         <div className="flex gap-3">
           {allowed("reports") && (
             <Button
-              className="border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+              className="border border-slate-200 bg-white! text-slate-600! hover:bg-slate-50! dark:border-slate-700 dark:bg-slate-900! dark:text-slate-300!"
               onClick={async () =>
                 setPerformance((await api("/academic/performance")).data)
               }
@@ -982,6 +1025,65 @@ export function Assessments({
           )}
         </div>
       </div>
+      <Card className="mb-5 grid gap-3 p-4 sm:grid-cols-3">
+        <Field label={L("Search exams by name", "البحث عن امتحان بالاسم")}>
+          <Input
+            value={q}
+            maxLength={100}
+            onChange={(e) => {
+              setQ(e.target.value);
+              setPage(1);
+            }}
+          />
+        </Field>
+        <Field label={L("Exam status filter", "فلتر حالة الامتحان")}>
+          <Select
+            value={status}
+            onChange={(e) => {
+              setStatus(e.target.value);
+              setPage(1);
+            }}
+          >
+            <option value="">{L("All statuses", "كل الحالات")}</option>
+            {["draft", "published", "closed"].map((s) => (
+              <option key={s} value={s}>
+                {s === "draft"
+                  ? L("Draft", "مسودة")
+                  : s === "published"
+                    ? L("Published", "منشور")
+                    : L("Closed", "مغلق")}
+              </option>
+            ))}
+          </Select>
+        </Field>
+        <Field label={L("Exam group filter", "فلتر مجموعة الامتحان")}>
+          <Select
+            value={group}
+            onChange={(e) => {
+              setGroup(e.target.value);
+              setPage(1);
+            }}
+          >
+            <option value="">{L("All groups", "كل المجموعات")}</option>
+            {groups.map((g) => (
+              <option key={g.id} value={g.id}>
+                {g.name}
+              </option>
+            ))}
+          </Select>
+        </Field>
+        <p className="text-xs text-slate-500 sm:col-span-3">
+          {L(
+            "Newest scheduled first, 20 per page. Filters apply within your current branch scope. Group choices follow the existing academic options limit.",
+            "الأحدث في الميعاد الأول، 20 في الصفحة. الفلاتر في نطاق فرعك الحالي. اختيارات المجموعات حسب حد القائمة الأكاديمية الحالي.",
+          )}
+        </p>
+      </Card>
+      {loading && (
+        <p role="status" className="my-4 text-sm text-slate-500">
+          {L("Loading exams…", "جاري تحميل الامتحانات…")}
+        </p>
+      )}
       {error && !edit && !detail && (
         <p role="alert" className="mb-5 text-sm text-red-600">
           {error}
@@ -1009,7 +1111,9 @@ export function Assessments({
             </p>
             <div className="flex items-center justify-between border-t border-slate-100 pt-4 dark:border-slate-800">
               <span className="text-xs text-slate-400">
-                {e.pass_score} / {e.max_score}
+                <bdi dir="ltr">
+                  {e.pass_score} / {e.max_score}
+                </bdi>
               </span>
               <button
                 className="text-xs font-semibold text-blue-700 dark:text-blue-300"
@@ -1021,11 +1125,29 @@ export function Assessments({
           </Card>
         ))}
       </div>
-      {!data.length && (
+      {!loading && !error && !data.length && (
         <Card className="p-14 text-center text-sm text-slate-400">
           {t.noResults}
         </Card>
       )}
+      <div className="my-5 flex flex-wrap items-center gap-3">
+        <Button
+          disabled={loading || page === 1}
+          onClick={() => setPage((v) => v - 1)}
+        >
+          {L("Previous exams", "الامتحانات السابقة")}
+        </Button>
+        <p role="status" className="text-xs text-slate-500">
+          {L("Page", "صفحة")} {page} · {L("Matching exams", "امتحانات مطابقة")}:{" "}
+          {total}
+        </p>
+        <Button
+          disabled={loading || page * 20 >= total}
+          onClick={() => setPage((v) => v + 1)}
+        >
+          {L("Next exams", "الامتحانات التالية")}
+        </Button>
+      </div>
       {edit && (
         <Dialog
           title={L("Exam settings", "إعدادات الامتحان")}
