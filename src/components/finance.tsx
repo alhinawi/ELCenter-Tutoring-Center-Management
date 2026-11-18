@@ -1,5 +1,6 @@
 "use client";
 import { useModalFocus } from "./modal-focus";
+import { AccountStatementExport } from "./account-statement";
 import { ReceiptNumberSettings } from "./receipt-numbering";
 import { InvoiceNumberSettings } from "./invoice-numbering";
 import {
@@ -606,6 +607,16 @@ export default function Finance({
         </Card>
       ) : section === "ledger" ? (
         <>
+          {allowed("finance", "export") && (
+            <AccountStatementExport
+              key={dates.from + dates.to}
+              api={api}
+              ar={ar}
+              accounts={settings?.accounts ?? []}
+              from={dates.from}
+              to={dates.to}
+            />
+          )}
           <p className="mb-4 text-sm leading-7 text-slate-500">
             {L(
               "Each page contains up to 25 complete journals, including every line. Page CSV exports only the visible page, not the full ledger. Newly posted entries may require a refresh; pagination is not a point-in-time accounting snapshot.",
