@@ -1,3 +1,4 @@
+import { studentPerformance } from "./student-performance";
 import { calendarDate } from "./dates";
 import type { Hono } from "hono";
 import { z } from "zod";
@@ -490,16 +491,7 @@ export function registerScheduling(app: Hono<any>) {
     });
   app.get("/api/sessions/:id/attendance", readAttendance);
   app.post("/api/sessions/:id/attendance", writeAttendance);
-  app.get("/api/academic/performance", async (c: AppContext) => {
-    permit(c, "reports");
-    const a = c.get("actor");
-    const rows = await c.env.DB.prepare(
-      "SELECT s.id,s.name,s.code,s.branch_id,count(DISTINCT at.id) attendance_count,COALESCE(round(100.0*count(DISTINCT CASE WHEN at.status IN ('present','late','left_early') THEN at.id END)/NULLIF(count(DISTINCT CASE WHEN at.status<>'excused' THEN at.id END),0),1),0) attendance_percent,(SELECT round(100.0*sum(r.score)/NULLIF(sum(ex.max_score),0),1) FROM el_exam_results r JOIN el_exams ex ON ex.id=r.exam_id WHERE r.student_id=s.id AND r.status='final') exam_percent FROM el_students s LEFT JOIN el_attendance at ON at.student_id=s.id WHERE s.org_id=? AND (? IS NULL OR s.branch_id=?) GROUP BY s.id ORDER BY s.name LIMIT 1000",
-    )
-      .bind(a.org_id, a.branch_id, a.branch_id)
-      .all();
-    return c.json({ data: rows.results });
-  });
+  app.get("/api/academic/performance", studentPerformance);
 }
 
 export async function readAttendance(c: AppContext) {

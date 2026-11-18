@@ -1,4 +1,5 @@
 "use client";
+import { StudentPerformance } from "./student-performance";
 import { ExamResultSheet } from "./exam-result-sheet";
 import { useModalFocus } from "./modal-focus";
 import {
@@ -998,7 +999,7 @@ export function Assessments({
     [busy, setBusy] = useState(false),
     [version, setVersion] = useState(0),
     [qtype, setQtype] = useState("multiple_choice"),
-    [performance, setPerformance] = useState<Row[] | null>(null);
+    [performance, setPerformance] = useState(false);
   const reload = () => setVersion((v) => v + 1);
   useEffect(() => {
     let active = true;
@@ -1080,9 +1081,7 @@ export function Assessments({
           {allowed("reports") && (
             <Button
               className="border border-slate-200 bg-white! text-slate-600! hover:bg-slate-50! dark:border-slate-700 dark:bg-slate-900! dark:text-slate-300!"
-              onClick={async () =>
-                setPerformance((await api("/academic/performance")).data)
-              }
+              onClick={() => setPerformance(true)}
             >
               {L("Performance", "المستوى")}
             </Button>
@@ -1528,25 +1527,9 @@ export function Assessments({
       {performance && (
         <Dialog
           title={L("Student performance", "مستوى الطلبة")}
-          close={() => setPerformance(null)}
+          close={() => setPerformance(false)}
         >
-          <div className="grid gap-3">
-            {performance.map((s) => (
-              <div
-                className="grid grid-cols-3 items-center gap-2 rounded-xl bg-slate-50 p-4 text-xs dark:bg-slate-800"
-                key={s.id}
-              >
-                <span className="font-semibold">{s.name}</span>
-                <span>
-                  {L("Attendance", "الحضور")}: {s.attendance_percent}%
-                </span>
-                <span>
-                  {L("Exams", "الامتحانات")}:{" "}
-                  {s.exam_percent === null ? "—" : s.exam_percent + "%"}
-                </span>
-              </div>
-            ))}
-          </div>
+          <StudentPerformance api={api} ar={ar} />
         </Dialog>
       )}
     </>
