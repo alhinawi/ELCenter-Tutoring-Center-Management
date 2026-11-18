@@ -1,4 +1,5 @@
 "use client";
+import { OrganizationLogo } from "./organization-logo";
 import { ProfilePhoto } from "./profile-photo";
 import { useModalFocus } from "./modal-focus";
 import { InvoicePrintHeader, InvoicePrintFooter } from "./invoice-print";
@@ -275,6 +276,9 @@ export function Portal({
             className="absolute inset-y-0 end-0 h-full w-1/2 object-cover opacity-25"
           />
           <div className="relative">
+            <div className="mb-3">
+              <OrganizationLogo api={p.api} ar={ar} />
+            </div>
             <p className="mb-3 text-xs font-medium text-blue-200">
               {organization.name}
             </p>
