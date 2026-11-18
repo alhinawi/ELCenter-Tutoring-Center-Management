@@ -1,0 +1,13 @@
+node_modules/
+.next/
+out/
+.wrangler/
+*.sqlite*
+.env*
+test-results/
+playwright-report/
+*.tsbuildinfo
+
+.local/
+
+playwright/.cache/
