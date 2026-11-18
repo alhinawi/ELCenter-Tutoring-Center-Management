@@ -97,7 +97,7 @@ export const copy = {
     ready: "Ready for a focused day",
     foundation: "Foundation workspace",
     foundationHelp:
-      "Organization, branches and team access are available. Academic records are available. Finance workflows follow in the next phases.",
+      "This is your current foundation overview. Open the dedicated modules for academic, finance and operational workflows. Recorded operations do not move real funds.",
     previous: "Previous",
     next: "Next",
     page: "Page",
@@ -223,7 +223,7 @@ export const copy = {
     ready: "جاهزين ليوم مليان إنجاز",
     foundation: "أساس مساحة العمل",
     foundationHelp:
-      "المؤسسة والفروع وصلاحيات الفريق شغّالين. السجلات الأكاديمية شغّالة. الحسابات جاية في المراحل اللي بعدها.",
+      "دي نظرة عامة على أساسيات مساحة العمل. افتح الأقسام المخصصة للدراسة والحسابات والتشغيل. تسجيل العمليات مش بينقل فلوس حقيقية.",
     previous: "السابق",
     next: "التالي",
     page: "صفحة",

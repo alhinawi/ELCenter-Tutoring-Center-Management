@@ -1,3 +1,7 @@
+import {
+  dashboardPreferences,
+  registerDashboardPreferences,
+} from "./dashboard-preferences";
 import { registerEmployeeLoans } from "./employee-loans";
 import { registerStudentCard } from "./student-card";
 import { registerBranchLogos } from "./branch-logos";
@@ -522,6 +526,7 @@ app.post("/api/auth/logout", async (c) => {
   deleteCookie(c, "elcenter_session", { path: "/" });
   return c.json({ ok: true });
 });
+registerDashboardPreferences(app);
 app.get("/api/dashboard", async (c) => {
   permit(c, "branches");
   const a = c.get("actor");
@@ -530,11 +535,13 @@ app.get("/api/dashboard", async (c) => {
   )
     .bind(a.org_id, a.branch_id, a.branch_id)
     .all();
-  const members = await c.env.DB.prepare(
-    "SELECT count(*) value FROM el_memberships WHERE org_id=? AND (? IS NULL OR branch_id=?) AND status=?",
-  )
-    .bind(a.org_id, a.branch_id, a.branch_id, "active")
-    .first<{ value: number }>();
+  const members = a.permissions.includes("users:view")
+    ? await c.env.DB.prepare(
+        "SELECT count(*) value FROM el_memberships WHERE org_id=? AND (? IS NULL OR branch_id=?) AND status=?",
+      )
+        .bind(a.org_id, a.branch_id, a.branch_id, "active")
+        .first<{ value: number }>()
+    : null;
   const activity = a.permissions.includes("audit:view")
     ? (
         await c.env.DB.prepare(
@@ -544,15 +551,18 @@ app.get("/api/dashboard", async (c) => {
           .all()
       ).results
     : [];
-  const roles = await c.env.DB.prepare(
-    "SELECT count(*) value FROM el_roles WHERE org_id=?",
-  )
-    .bind(a.org_id)
-    .first<{ value: number }>();
+  const roles = a.permissions.includes("roles:view")
+    ? await c.env.DB.prepare(
+        "SELECT count(*) value FROM el_roles WHERE org_id=?",
+      )
+        .bind(a.org_id)
+        .first<{ value: number }>()
+    : null;
   return c.json({
     branches: b.results,
-    members: members?.value ?? 0,
-    roles: roles?.value ?? 0,
+    ...(members ? { members: members.value } : {}),
+    ...(roles ? { roles: roles.value } : {}),
+    ...(await dashboardPreferences(c)),
     activity,
   });
 });
