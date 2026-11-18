@@ -707,8 +707,9 @@ const roleSchema = z.object({
 });
 function validPermissions(p: string[]) {
   return p.every((s) => {
-    const [r, a] = s.split(":");
+    const [r, a, extra] = s.split(":");
     return (
+      extra === undefined &&
       (resources as readonly string[]).includes(r) &&
       (actions as readonly string[]).includes(a)
     );
@@ -768,6 +769,13 @@ app.put("/api/roles/:id", async (c) => {
     "Owner and super-admin roles are protected",
   );
   assert(a.role_id !== id, 403, "You cannot change your own active role");
+  const beforePermissions = (
+    await c.env.DB.prepare(
+      "SELECT resource,action FROM el_role_permissions WHERE role_id=? ORDER BY resource,action",
+    )
+      .bind(id)
+      .all<{ resource: string; action: string }>()
+  ).results.map((p) => `${p.resource}:${p.action}`);
   await c.env.DB.batch([
     c.env.DB.prepare("UPDATE el_roles SET name=? WHERE id=? AND org_id=?").bind(
       d.name,
@@ -783,7 +791,14 @@ app.put("/api/roles/:id", async (c) => {
         "INSERT INTO el_role_permissions(role_id,resource,action) VALUES(?,?,?)",
       ).bind(id, r, action);
     }),
-    audit(c, "role", id, "update", before, d),
+    audit(
+      c,
+      "role",
+      id,
+      "update",
+      { ...before, permissions: beforePermissions },
+      d,
+    ),
   ]);
   return c.json({ ok: true });
 });
@@ -791,9 +806,9 @@ app.get("/api/users", async (c) => {
   permit(c, "users");
   const a = c.get("actor");
   const data = await c.env.DB.prepare(
-    "SELECT m.id,m.user_id,u.name,u.email,m.role_id,r.name role_name,m.branch_id,b.name branch_name,m.status FROM el_memberships m JOIN el_users u ON u.id=m.user_id JOIN el_roles r ON r.id=m.role_id LEFT JOIN el_branches b ON b.id=m.branch_id WHERE m.org_id=? ORDER BY u.name",
+    "SELECT m.id,m.user_id,u.name,u.email,m.role_id,r.name role_name,m.branch_id,b.name branch_name,m.status FROM el_memberships m JOIN el_users u ON u.id=m.user_id JOIN el_roles r ON r.id=m.role_id LEFT JOIN el_branches b ON b.id=m.branch_id WHERE m.org_id=? AND (? IS NULL OR m.branch_id=?) ORDER BY u.name,u.id",
   )
-    .bind(a.org_id)
+    .bind(a.org_id, a.branch_id, a.branch_id)
     .all();
   return c.json({ data: data.results });
 });

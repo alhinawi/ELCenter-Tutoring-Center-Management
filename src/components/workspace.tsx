@@ -1567,8 +1567,17 @@ function Team({
   }
   return (
     <>
-      <Heading title={t.users} sub={t.memberHelp}>
-        {allowed("users", "create") && (
+      <Heading
+        title={t.users}
+        sub={
+          me.branch_id
+            ? t.language === "English"
+              ? "بتشوف حسابات فرعك بس. إدارة الحسابات من المقر الرئيسي."
+              : "Only accounts assigned to your branch are shown. Headquarters manages account changes."
+            : t.memberHelp
+        }
+      >
+        {!me.branch_id && allowed("users", "create") && (
           <Button
             onClick={() => {
               setOpen(true);
@@ -1617,7 +1626,8 @@ function Team({
                       </span>
                     </td>
                     <td className="px-5 py-5">
-                      {u.id !== me.membership_id &&
+                      {!me.branch_id &&
+                        u.id !== me.membership_id &&
                         !["Business Owner", "Super Admin"].includes(
                           String(u.role_name),
                         ) &&
