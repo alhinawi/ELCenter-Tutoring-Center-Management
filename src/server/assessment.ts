@@ -93,77 +93,8 @@ export function registerAssessment(app: Hono<any>) {
       .all();
     return c.json({ data: rows.results });
   });
-  app.post("/api/exams", async (c: AppContext) => {
-    permit(c, "exams", "create");
-    const d = schema.parse(await c.req.json()),
-      g = await record(c, "groups", d.group_id),
-      id = uid();
-    assert(d.status === "draft", 400, "Create exams as drafts first");
-    await c.env.DB.batch([
-      c.env.DB.prepare(
-        "INSERT INTO el_exams(id,org_id,branch_id,group_id,name,scheduled_at,max_score,pass_score,status) VALUES(?,?,?,?,?,?,?,?,?)",
-      ).bind(
-        id,
-        g.org_id,
-        g.branch_id,
-        g.id,
-        d.name,
-        d.scheduled_at,
-        d.max_score,
-        d.pass_score,
-        d.status,
-      ),
-      audit(c, "exam", id, "create", null, d),
-    ]);
-    return c.json({ id }, 201);
-  });
-  app.put("/api/exams/:id", async (c: AppContext) => {
-    permit(c, "exams", "edit");
-    const id = c.req.param("id")!,
-      before = await exam(c, id),
-      d = schema.parse(await c.req.json());
-    assert(
-      before.status === "draft" ||
-        (d.status === "closed" &&
-          d.group_id === before.group_id &&
-          d.max_score === before.max_score &&
-          d.pass_score === before.pass_score &&
-          d.scheduled_at === before.scheduled_at),
-      409,
-      "Published exams are locked; close without changing grading rules",
-    );
-    assert(before.status !== "closed", 409, "Closed exams are immutable");
-    const g = await record(c, "groups", d.group_id);
-    assert(g.branch_id === before.branch_id, 409, "Exam branch is fixed");
-    if (d.status === "published") {
-      const q = await c.env.DB.prepare(
-        "SELECT count(*) n,COALESCE(sum(points),0) total FROM el_questions WHERE exam_id=?",
-      )
-        .bind(id)
-        .first<{ n: number; total: number }>();
-      assert(
-        !q?.n || Math.abs(q.total - d.max_score) < 0.00001,
-        409,
-        "Question points must equal the maximum score before publishing",
-      );
-    }
-    await c.env.DB.batch([
-      c.env.DB.prepare(
-        "UPDATE el_exams SET name=?,group_id=?,scheduled_at=?,max_score=?,pass_score=?,status=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND org_id=?",
-      ).bind(
-        d.name,
-        d.group_id,
-        d.scheduled_at,
-        d.max_score,
-        d.pass_score,
-        d.status,
-        id,
-        c.get("actor").org_id,
-      ),
-      audit(c, "exam", id, "update", before, d),
-    ]);
-    return c.json({ ok: true });
-  });
+  app.post("/api/exams", createExam);
+  app.put("/api/exams/:id", updateExam);
   app.get("/api/exams/:id", async (c: AppContext) => {
     permit(c, "exams");
     const e = await exam(c, c.req.param("id")!);
@@ -189,79 +120,8 @@ export function registerAssessment(app: Hono<any>) {
       students: students.results,
     });
   });
-  const question = z.object({
-    type: z.enum([
-      "multiple_choice",
-      "true_false",
-      "short_answer",
-      "essay",
-      "matching",
-      "fill_blanks",
-    ]),
-    prompt: z.string().trim().min(1).max(2000),
-    options: z.array(z.string().max(500)).max(20).default([]),
-    correct_answer: text,
-    points: z.number().positive().max(10000),
-    position: z.number().int().min(0).max(500).default(0),
-  });
-  app.post("/api/exams/:id/questions", async (c: AppContext) => {
-    permit(c, "exams", "edit");
-    const e = await exam(c, c.req.param("id")!),
-      d = question.parse(await c.req.json());
-    assert(e.status === "draft", 409, "Published exam questions are locked");
-    if (d.type === "multiple_choice")
-      assert(
-        d.options.length >= 2 && d.options.includes(d.correct_answer),
-        400,
-        "Provide options and a correct answer from those options",
-      );
-    if (d.type === "true_false")
-      assert(
-        ["true", "false"].includes(d.correct_answer),
-        400,
-        "Correct answer must be true or false",
-      );
-    if (d.type === "matching" || d.type === "fill_blanks") {
-      try {
-        const value = JSON.parse(d.correct_answer);
-        assert(
-          d.type === "fill_blanks"
-            ? Array.isArray(value)
-            : value && typeof value === "object" && !Array.isArray(value),
-          400,
-          "Use valid structured answers",
-        );
-      } catch {
-        assert(
-          false,
-          400,
-          "Matching answers need a JSON object, fill-blanks answers need a JSON array",
-        );
-      }
-    }
-    const id = uid();
-    await c.env.DB.batch([
-      c.env.DB.prepare(
-        "INSERT INTO el_questions(id,org_id,exam_id,type,prompt,options_json,correct_answer,points,position,is_demo) VALUES(?,?,?,?,?,?,?,?,?,?)",
-      ).bind(
-        id,
-        e.org_id,
-        e.id,
-        d.type,
-        d.prompt,
-        JSON.stringify(d.options),
-        d.correct_answer,
-        d.points,
-        d.position,
-        e.is_demo,
-      ),
-      audit(c, "question", id, "create", null, {
-        ...d,
-        correct_answer: "[redacted]",
-      }),
-    ]);
-    return c.json({ id }, 201);
-  });
+
+  app.post("/api/exams/:id/questions", createExamQuestion);
   app.delete("/api/questions/:id", async (c: AppContext) => {
     permit(c, "exams", "edit");
     const q = await c.env.DB.prepare(
@@ -278,49 +138,7 @@ export function registerAssessment(app: Hono<any>) {
     ]);
     return c.json({ ok: true });
   });
-  app.post("/api/exams/:id/results", async (c: AppContext) => {
-    permit(c, "exams", "edit");
-    const e = await exam(c, c.req.param("id")!),
-      d = z
-        .object({
-          student_id: z.uuid(),
-          score: z.number().min(0).max(10000),
-          feedback: text,
-        })
-        .parse(await c.req.json());
-    assert(
-      e.status === "published",
-      409,
-      "Only published open exams accept grading",
-    );
-    assert(
-      e.scheduled_at <= now(),
-      409,
-      "Cannot pre-record results for a future exam",
-    );
-    assert(d.score <= e.max_score, 400, "Score exceeds maximum");
-    const s = await eligible(c, e, d.student_id);
-    const id = uid();
-    await c.env.DB.batch([
-      c.env.DB.prepare(
-        "INSERT INTO el_exam_results(id,org_id,exam_id,student_id,score,feedback,graded_by,is_demo) VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(exam_id,student_id) DO UPDATE SET score=excluded.score,feedback=excluded.feedback,status='final',graded_by=excluded.graded_by,updated_at=CURRENT_TIMESTAMP",
-      ).bind(
-        id,
-        e.org_id,
-        e.id,
-        s.id,
-        d.score,
-        d.feedback,
-        c.get("actor").user_id,
-        e.is_demo && s.is_demo ? 1 : 0,
-      ),
-      audit(c, "exam_result", `${e.id}:${s.id}`, "grade", null, {
-        score: d.score,
-        feedback: d.feedback,
-      }),
-    ]);
-    return c.json({ ok: true });
-  });
+  app.post("/api/exams/:id/results", gradeExamResult);
   app.post("/api/exams/:id/grade-answers", async (c: AppContext) => {
     permit(c, "exams", "edit");
     const e = await exam(c, c.req.param("id")!),
@@ -412,4 +230,195 @@ export function registerAssessment(app: Hono<any>) {
     ]);
     return c.json({ score, max_score: e.max_score, needs_review: needsReview });
   });
+}
+
+export async function gradeExamResult(c: AppContext) {
+  permit(c, "exams", "edit");
+  const e = await exam(c, c.req.param("id")!),
+    d = z
+      .object({
+        student_id: z.uuid(),
+        score: z.number().min(0).max(10000),
+        feedback: text,
+      })
+      .parse(await c.req.json());
+  assert(
+    e.status === "published",
+    409,
+    "Only published open exams accept grading",
+  );
+  assert(
+    e.scheduled_at <= now(),
+    409,
+    "Cannot pre-record results for a future exam",
+  );
+  assert(d.score <= e.max_score, 400, "Score exceeds maximum");
+  const s = await eligible(c, e, d.student_id);
+  const id = uid();
+  await c.env.DB.batch([
+    c.env.DB.prepare(
+      "INSERT INTO el_exam_results(id,org_id,exam_id,student_id,score,feedback,graded_by,is_demo) VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(exam_id,student_id) DO UPDATE SET score=excluded.score,feedback=excluded.feedback,status='final',grading_source='manual',graded_by=excluded.graded_by,updated_at=CURRENT_TIMESTAMP",
+    ).bind(
+      id,
+      e.org_id,
+      e.id,
+      s.id,
+      d.score,
+      d.feedback,
+      c.get("actor").user_id,
+      e.is_demo && s.is_demo ? 1 : 0,
+    ),
+    audit(c, "exam_result", `${e.id}:${s.id}`, "grade", null, {
+      score: d.score,
+      feedback: d.feedback,
+    }),
+  ]);
+  return c.json({ ok: true });
+}
+const question = z.object({
+  type: z.enum([
+    "multiple_choice",
+    "true_false",
+    "short_answer",
+    "essay",
+    "matching",
+    "fill_blanks",
+  ]),
+  prompt: z.string().trim().min(1).max(2000),
+  options: z.array(z.string().max(500)).max(20).default([]),
+  correct_answer: text,
+  points: z.number().positive().max(10000),
+  position: z.number().int().min(0).max(500).default(0),
+});
+
+export async function createExam(c: AppContext) {
+  permit(c, "exams", "create");
+  const d = schema.parse(await c.req.json()),
+    g = await record(c, "groups", d.group_id),
+    id = uid();
+  assert(d.status === "draft", 400, "Create exams as drafts first");
+  await c.env.DB.batch([
+    c.env.DB.prepare(
+      "INSERT INTO el_exams(id,org_id,branch_id,group_id,name,scheduled_at,max_score,pass_score,status) VALUES(?,?,?,?,?,?,?,?,?)",
+    ).bind(
+      id,
+      g.org_id,
+      g.branch_id,
+      g.id,
+      d.name,
+      d.scheduled_at,
+      d.max_score,
+      d.pass_score,
+      d.status,
+    ),
+    audit(c, "exam", id, "create", null, d),
+  ]);
+  return c.json({ id }, 201);
+}
+
+export async function updateExam(c: AppContext) {
+  permit(c, "exams", "edit");
+  const id = c.req.param("id")!,
+    before = await exam(c, id),
+    d = schema.parse(await c.req.json());
+  assert(
+    before.status === "draft" ||
+      (d.status === "closed" &&
+        d.group_id === before.group_id &&
+        d.max_score === before.max_score &&
+        d.pass_score === before.pass_score &&
+        d.scheduled_at === before.scheduled_at),
+    409,
+    "Published exams are locked; close without changing grading rules",
+  );
+  assert(before.status !== "closed", 409, "Closed exams are immutable");
+  const g = await record(c, "groups", d.group_id);
+  assert(g.branch_id === before.branch_id, 409, "Exam branch is fixed");
+  if (d.status === "published") {
+    const q = await c.env.DB.prepare(
+      "SELECT count(*) n,COALESCE(sum(points),0) total FROM el_questions WHERE exam_id=?",
+    )
+      .bind(id)
+      .first<{ n: number; total: number }>();
+    assert(
+      !q?.n || Math.abs(q.total - d.max_score) < 0.00001,
+      409,
+      "Question points must equal the maximum score before publishing",
+    );
+  }
+  await c.env.DB.batch([
+    c.env.DB.prepare(
+      "UPDATE el_exams SET name=?,group_id=?,scheduled_at=?,max_score=?,pass_score=?,status=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND org_id=?",
+    ).bind(
+      d.name,
+      d.group_id,
+      d.scheduled_at,
+      d.max_score,
+      d.pass_score,
+      d.status,
+      id,
+      c.get("actor").org_id,
+    ),
+    audit(c, "exam", id, "update", before, d),
+  ]);
+  return c.json({ ok: true });
+}
+
+export async function createExamQuestion(c: AppContext) {
+  permit(c, "exams", "edit");
+  const e = await exam(c, c.req.param("id")!),
+    d = question.parse(await c.req.json());
+  assert(e.status === "draft", 409, "Published exam questions are locked");
+  if (d.type === "multiple_choice")
+    assert(
+      d.options.length >= 2 && d.options.includes(d.correct_answer),
+      400,
+      "Provide options and a correct answer from those options",
+    );
+  if (d.type === "true_false")
+    assert(
+      ["true", "false"].includes(d.correct_answer),
+      400,
+      "Correct answer must be true or false",
+    );
+  if (d.type === "matching" || d.type === "fill_blanks") {
+    try {
+      const value = JSON.parse(d.correct_answer);
+      assert(
+        d.type === "fill_blanks"
+          ? Array.isArray(value)
+          : value && typeof value === "object" && !Array.isArray(value),
+        400,
+        "Use valid structured answers",
+      );
+    } catch {
+      assert(
+        false,
+        400,
+        "Matching answers need a JSON object, fill-blanks answers need a JSON array",
+      );
+    }
+  }
+  const id = uid();
+  await c.env.DB.batch([
+    c.env.DB.prepare(
+      "INSERT INTO el_questions(id,org_id,exam_id,type,prompt,options_json,correct_answer,points,position,is_demo) VALUES(?,?,?,?,?,?,?,?,?,?)",
+    ).bind(
+      id,
+      e.org_id,
+      e.id,
+      d.type,
+      d.prompt,
+      JSON.stringify(d.options),
+      d.correct_answer,
+      d.points,
+      d.position,
+      e.is_demo,
+    ),
+    audit(c, "question", id, "create", null, {
+      ...d,
+      correct_answer: "[redacted]",
+    }),
+  ]);
+  return c.json({ id }, 201);
 }

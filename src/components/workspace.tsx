@@ -1,5 +1,6 @@
 "use client";
 import Operations from "./operations";
+import { Portal, LearningSpace, PortalAdmin } from "./portals";
 import Finance from "./finance";
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import {
@@ -43,6 +44,7 @@ type User = {
   name: string;
   email: string;
   role_name: string;
+  system_key: string;
   user_id: string;
   membership_id: string;
   permissions: string[];
@@ -53,6 +55,8 @@ type User = {
 type Me = { user: User; organization: Row };
 type Tab =
   | Entity
+  | "learning"
+  | "portals"
   | "operations"
   | "finance"
   | "schedule"
@@ -82,6 +86,8 @@ const nav = [
   { key: "schedule", icon: CalendarDays, resource: "sessions" },
   { key: "finance", icon: Building2, resource: "finance" },
   { key: "operations", icon: Users, resource: "hr" },
+  { key: "learning", icon: GraduationCap, resource: "lms" },
+  { key: "portals", icon: Users, resource: "users" },
   { key: "assessments", icon: GraduationCap, resource: "exams" },
   { key: "users", icon: Users, resource: "users" },
   { key: "roles", icon: ShieldCheck, resource: "roles" },
@@ -229,6 +235,23 @@ export default function Workspace() {
         </div>
       </div>
     );
+  if (["student", "parent_guardian", "teacher"].includes(me.user.system_key))
+    return (
+      <Portal
+        user={me.user}
+        organization={me.organization}
+        chrome={chrome}
+        onLogout={() =>
+          void api("/auth/logout", "POST", {}).then(() => setMe(null))
+        }
+        t={t}
+        api={api}
+        toast={toast}
+        allowed={allowed}
+        timezone={String(me.organization.timezone)}
+        currency={String(me.organization.currency)}
+      />
+    );
   return (
     <div className="min-h-screen bg-[#f5f7fb] dark:bg-slate-950 dark:text-slate-100">
       {mobile && (
@@ -273,25 +296,33 @@ export default function Workspace() {
                 className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-start text-sm font-medium transition ${tab === key ? "bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300" : "text-slate-500 hover:bg-slate-50 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white"}`}
               >
                 <Icon size={19} />
-                {key in academicNames
-                  ? academicNames[key as Entity][lang === "ar" ? 1 : 0]
-                  : key === "operations"
+                {key === "learning"
+                  ? lang === "ar"
+                    ? "مساحة التعلم"
+                    : "Learning space"
+                  : key === "portals"
                     ? lang === "ar"
-                      ? "الفريق والتسجيل"
-                      : "People & admissions"
-                    : key === "finance"
-                      ? lang === "ar"
-                        ? "الحسابات والمرتبات"
-                        : "Finance & payroll"
-                      : key === "schedule"
+                      ? "البوابات والطلبات"
+                      : "Portals & requests"
+                    : key in academicNames
+                      ? academicNames[key as Entity][lang === "ar" ? 1 : 0]
+                      : key === "operations"
                         ? lang === "ar"
-                          ? "الجدول والحضور"
-                          : "Timetable & attendance"
-                        : key === "assessments"
+                          ? "الفريق والتسجيل"
+                          : "People & admissions"
+                        : key === "finance"
                           ? lang === "ar"
-                            ? "الامتحانات والمستوى"
-                            : "Exams & performance"
-                          : t[key as keyof T]}
+                            ? "الحسابات والمرتبات"
+                            : "Finance & payroll"
+                          : key === "schedule"
+                            ? lang === "ar"
+                              ? "الجدول والحضور"
+                              : "Timetable & attendance"
+                            : key === "assessments"
+                              ? lang === "ar"
+                                ? "الامتحانات والمستوى"
+                                : "Exams & performance"
+                              : t[key as keyof T]}
                 {tab === key && (
                   <span className="ms-auto h-1.5 w-1.5 rounded-full bg-blue-600" />
                 )}
@@ -356,25 +387,33 @@ export default function Workspace() {
                   size={12}
                   className="hidden text-slate-300 sm:block"
                 />
-                {tab in academicNames
-                  ? academicNames[tab as Entity][lang === "ar" ? 1 : 0]
-                  : tab === "operations"
+                {tab === "learning"
+                  ? lang === "ar"
+                    ? "مساحة التعلم"
+                    : "Learning space"
+                  : tab === "portals"
                     ? lang === "ar"
-                      ? "الفريق والتسجيل"
-                      : "People & admissions"
-                    : tab === "finance"
-                      ? lang === "ar"
-                        ? "الحسابات والمرتبات"
-                        : "Finance & payroll"
-                      : tab === "schedule"
+                      ? "البوابات والطلبات"
+                      : "Portals & requests"
+                    : tab in academicNames
+                      ? academicNames[tab as Entity][lang === "ar" ? 1 : 0]
+                      : tab === "operations"
                         ? lang === "ar"
-                          ? "الجدول والحضور"
-                          : "Timetable & attendance"
-                        : tab === "assessments"
+                          ? "الفريق والتسجيل"
+                          : "People & admissions"
+                        : tab === "finance"
                           ? lang === "ar"
-                            ? "الامتحانات والمستوى"
-                            : "Exams & performance"
-                          : t[tab as keyof T]}
+                            ? "الحسابات والمرتبات"
+                            : "Finance & payroll"
+                          : tab === "schedule"
+                            ? lang === "ar"
+                              ? "الجدول والحضور"
+                              : "Timetable & attendance"
+                            : tab === "assessments"
+                              ? lang === "ar"
+                                ? "الامتحانات والمستوى"
+                                : "Exams & performance"
+                              : t[tab as keyof T]}
               </div>
             </div>
           </div>
@@ -396,7 +435,25 @@ export default function Workspace() {
               {error}
             </div>
           )}
-          {tab === "operations" ? (
+          {tab === "learning" ? (
+            <LearningSpace
+              t={t}
+              api={api}
+              toast={toast}
+              allowed={allowed}
+              timezone={String(me.organization.timezone)}
+              currency={String(me.organization.currency)}
+            />
+          ) : tab === "portals" ? (
+            <PortalAdmin
+              t={t}
+              api={api}
+              toast={toast}
+              allowed={allowed}
+              timezone={String(me.organization.timezone)}
+              currency={String(me.organization.currency)}
+            />
+          ) : tab === "operations" ? (
             <Operations
               currency={String(me.organization.currency)}
               t={t}
@@ -570,6 +627,15 @@ function Auth({
         });
       if (session.user?.csrf)
         await fetch("/api/settings/demo/operations", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-csrf-token": session.user.csrf,
+          },
+          body: "{}",
+        });
+      if (session.user?.csrf)
+        await fetch("/api/settings/demo/portals", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -1278,6 +1344,7 @@ function Organization({
                   await api("/settings/demo/learning", "POST", {});
                   await api("/settings/demo/finance", "POST", {});
                   await api("/settings/demo/operations", "POST", {});
+                  await api("/settings/demo/portals", "POST", {});
                 }
                 await reload();
                 toast();

@@ -354,133 +354,8 @@ export function registerScheduling(app: Hono<any>) {
       ]);
       return c.json({ ok: true });
     });
-  app.get("/api/sessions/:id/attendance", async (c: AppContext) => {
-    permit(c, "attendance");
-    const s = await session(c, c.req.param("id")!);
-    const rows = await c.env.DB.prepare(
-      "SELECT st.id student_id,st.name,st.code,a.status,a.arrival,a.departure,a.notes FROM el_enrollments e JOIN el_students st ON st.id=e.student_id LEFT JOIN el_attendance a ON a.session_id=? AND a.student_id=st.id WHERE e.group_id=? AND e.org_id=? AND e.status<>'waiting' AND unixepoch(e.created_at)<=? AND (e.status IN ('active','completed') OR unixepoch(e.updated_at)>=?) ORDER BY st.name",
-    )
-      .bind(s.id, s.group_id, s.org_id, s.starts_at, s.starts_at)
-      .all();
-    return c.json({ session: s, data: rows.results });
-  });
-  app.post("/api/sessions/:id/attendance", async (c: AppContext) => {
-    permit(c, "attendance", "edit");
-    const s = await session(c, c.req.param("id")!);
-    assert(
-      s.status !== "cancelled",
-      409,
-      "Cannot record attendance for a cancelled session",
-    );
-    assert(s.starts_at <= now(), 409, "Cannot pre-record future attendance");
-    const d = z
-      .object({
-        rows: z
-          .array(
-            z
-              .object({
-                student_id: z.uuid(),
-                status: z.enum([
-                  "present",
-                  "absent",
-                  "late",
-                  "excused",
-                  "left_early",
-                ]),
-                arrival: timestamp.nullable().default(null),
-                departure: timestamp.nullable().default(null),
-                notes: text,
-              })
-              .refine(
-                (x) =>
-                  x.arrival === null ||
-                  x.departure === null ||
-                  x.departure >= x.arrival,
-                { message: "Departure must follow arrival" },
-              ),
-          )
-          .min(1)
-          .max(500),
-      })
-      .parse(await c.req.json());
-    const eligible = (
-      await c.env.DB.prepare(
-        "SELECT st.id,st.is_demo FROM el_enrollments e JOIN el_students st ON st.id=e.student_id WHERE e.group_id=? AND e.org_id=? AND e.status<>'waiting' AND unixepoch(e.created_at)<=? AND (e.status IN ('active','completed') OR unixepoch(e.updated_at)>=?)",
-      )
-        .bind(s.group_id, s.org_id, s.starts_at, s.starts_at)
-        .all<{ id: string; is_demo: number }>()
-    ).results;
-    assert(
-      new Set(d.rows.map((x) => x.student_id)).size === d.rows.length,
-      400,
-      "Duplicate student",
-    );
-    assert(
-      d.rows.every((r) => eligible.some((e) => e.id === r.student_id)),
-      403,
-      "One or more students are not eligible for this session",
-    );
-    assert(
-      d.rows.every(
-        (r) =>
-          (r.arrival === null || Math.abs(r.arrival - s.starts_at) <= 86400) &&
-          (r.departure === null || Math.abs(r.departure - s.ends_at) <= 86400),
-      ),
-      400,
-      "Arrival and departure must be within one day of the session",
-    );
-    const a = c.get("actor"),
-      statements = [];
-    for (const r of d.rows) {
-      const demo =
-        s.is_demo && eligible.find((x) => x.id === r.student_id)!.is_demo
-          ? 1
-          : 0;
-      statements.push(
-        c.env.DB.prepare(
-          "INSERT INTO el_attendance(id,org_id,session_id,student_id,status,arrival,departure,notes,recorded_by,is_demo) VALUES(?,?,?,?,?,?,?,?,?,?) ON CONFLICT(session_id,student_id) DO UPDATE SET status=excluded.status,arrival=excluded.arrival,departure=excluded.departure,notes=excluded.notes,recorded_by=excluded.recorded_by,updated_at=CURRENT_TIMESTAMP",
-        ).bind(
-          uid(),
-          a.org_id,
-          s.id,
-          r.student_id,
-          r.status,
-          r.arrival,
-          r.departure,
-          r.notes,
-          a.user_id,
-          demo,
-        ),
-      );
-      if (r.status === "absent")
-        statements.push(
-          c.env.DB.prepare(
-            "INSERT INTO el_academic_alerts(id,org_id,branch_id,student_id,session_id,kind,message,is_demo) VALUES(?,?,?,?,?,'absence',?,?) ON CONFLICT(session_id,student_id,kind) DO UPDATE SET message=excluded.message",
-          ).bind(
-            uid(),
-            a.org_id,
-            s.branch_id,
-            r.student_id,
-            s.id,
-            "Student recorded absent. In-app guardian alert.",
-            demo,
-          ),
-        );
-      else
-        statements.push(
-          c.env.DB.prepare(
-            "DELETE FROM el_academic_alerts WHERE session_id=? AND student_id=? AND kind='absence'",
-          ).bind(s.id, r.student_id),
-        );
-    }
-    await c.env.DB.batch([
-      ...statements,
-      audit(c, "attendance", s.id, "bulk_update", null, {
-        count: d.rows.length,
-      }),
-    ]);
-    return c.json({ ok: true });
-  });
+  app.get("/api/sessions/:id/attendance", readAttendance);
+  app.post("/api/sessions/:id/attendance", writeAttendance);
   app.get("/api/academic/performance", async (c: AppContext) => {
     permit(c, "reports");
     const a = c.get("actor");
@@ -491,4 +366,131 @@ export function registerScheduling(app: Hono<any>) {
       .all();
     return c.json({ data: rows.results });
   });
+}
+
+export async function readAttendance(c: AppContext) {
+  permit(c, "attendance");
+  const s = await session(c, c.req.param("id")!);
+  const rows = await c.env.DB.prepare(
+    "SELECT st.id student_id,st.name,st.code,a.status,a.arrival,a.departure,a.notes FROM el_enrollments e JOIN el_students st ON st.id=e.student_id LEFT JOIN el_attendance a ON a.session_id=? AND a.student_id=st.id WHERE e.group_id=? AND e.org_id=? AND e.status<>'waiting' AND unixepoch(e.created_at)<=? AND (e.status IN ('active','completed') OR unixepoch(e.updated_at)>=?) ORDER BY st.name",
+  )
+    .bind(s.id, s.group_id, s.org_id, s.starts_at, s.starts_at)
+    .all();
+  return c.json({ session: s, data: rows.results });
+}
+
+export async function writeAttendance(c: AppContext) {
+  permit(c, "attendance", "edit");
+  const s = await session(c, c.req.param("id")!);
+  assert(
+    s.status !== "cancelled",
+    409,
+    "Cannot record attendance for a cancelled session",
+  );
+  assert(s.starts_at <= now(), 409, "Cannot pre-record future attendance");
+  const d = z
+    .object({
+      rows: z
+        .array(
+          z
+            .object({
+              student_id: z.uuid(),
+              status: z.enum([
+                "present",
+                "absent",
+                "late",
+                "excused",
+                "left_early",
+              ]),
+              arrival: timestamp.nullable().default(null),
+              departure: timestamp.nullable().default(null),
+              notes: text,
+            })
+            .refine(
+              (x) =>
+                x.arrival === null ||
+                x.departure === null ||
+                x.departure >= x.arrival,
+              { message: "Departure must follow arrival" },
+            ),
+        )
+        .min(1)
+        .max(500),
+    })
+    .parse(await c.req.json());
+  const eligible = (
+    await c.env.DB.prepare(
+      "SELECT st.id,st.is_demo FROM el_enrollments e JOIN el_students st ON st.id=e.student_id WHERE e.group_id=? AND e.org_id=? AND e.status<>'waiting' AND unixepoch(e.created_at)<=? AND (e.status IN ('active','completed') OR unixepoch(e.updated_at)>=?)",
+    )
+      .bind(s.group_id, s.org_id, s.starts_at, s.starts_at)
+      .all<{ id: string; is_demo: number }>()
+  ).results;
+  assert(
+    new Set(d.rows.map((x) => x.student_id)).size === d.rows.length,
+    400,
+    "Duplicate student",
+  );
+  assert(
+    d.rows.every((r) => eligible.some((e) => e.id === r.student_id)),
+    403,
+    "One or more students are not eligible for this session",
+  );
+  assert(
+    d.rows.every(
+      (r) =>
+        (r.arrival === null || Math.abs(r.arrival - s.starts_at) <= 86400) &&
+        (r.departure === null || Math.abs(r.departure - s.ends_at) <= 86400),
+    ),
+    400,
+    "Arrival and departure must be within one day of the session",
+  );
+  const a = c.get("actor"),
+    statements = [];
+  for (const r of d.rows) {
+    const demo =
+      s.is_demo && eligible.find((x) => x.id === r.student_id)!.is_demo ? 1 : 0;
+    statements.push(
+      c.env.DB.prepare(
+        "INSERT INTO el_attendance(id,org_id,session_id,student_id,status,arrival,departure,notes,recorded_by,is_demo) VALUES(?,?,?,?,?,?,?,?,?,?) ON CONFLICT(session_id,student_id) DO UPDATE SET status=excluded.status,arrival=excluded.arrival,departure=excluded.departure,notes=excluded.notes,recorded_by=excluded.recorded_by,updated_at=CURRENT_TIMESTAMP",
+      ).bind(
+        uid(),
+        a.org_id,
+        s.id,
+        r.student_id,
+        r.status,
+        r.arrival,
+        r.departure,
+        r.notes,
+        a.user_id,
+        demo,
+      ),
+    );
+    if (r.status === "absent")
+      statements.push(
+        c.env.DB.prepare(
+          "INSERT INTO el_academic_alerts(id,org_id,branch_id,student_id,session_id,kind,message,is_demo) VALUES(?,?,?,?,?,'absence',?,?) ON CONFLICT(session_id,student_id,kind) DO UPDATE SET message=excluded.message",
+        ).bind(
+          uid(),
+          a.org_id,
+          s.branch_id,
+          r.student_id,
+          s.id,
+          "Student recorded absent. In-app guardian alert.",
+          demo,
+        ),
+      );
+    else
+      statements.push(
+        c.env.DB.prepare(
+          "DELETE FROM el_academic_alerts WHERE session_id=? AND student_id=? AND kind='absence'",
+        ).bind(s.id, r.student_id),
+      );
+  }
+  await c.env.DB.batch([
+    ...statements,
+    audit(c, "attendance", s.id, "bulk_update", null, {
+      count: d.rows.length,
+    }),
+  ]);
+  return c.json({ ok: true });
 }

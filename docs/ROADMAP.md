@@ -8,8 +8,8 @@ Each phase is a real pull request with tested server persistence and usable scre
 | 2     | Students, guardians, teachers, courses, groups, classrooms, safe demo toggle    | Merged, PR #2 |
 | 3     | Timetables, sessions, attendance, exams, performance                            | Merged, PR #3 |
 | 4     | Invoices, payments, expenses, accounting, payroll                               | Merged, PR #4 |
-| 5     | HR, CRM, notifications, marketing, reception                                    | In review     |
-| 6     | Student, guardian and teacher portals, LMS                                      | Planned       |
+| 5     | HR, CRM, notifications, marketing, reception                                    | Merged, PR #5 |
+| 6     | Student, guardian and teacher portals, LMS                                      | In review     |
 | 7     | Inventory, library, support, documents, reports                                 | Planned       |
 | 8     | Security hardening, automations, integrations, performance, testing, deployment | Planned       |
 
@@ -32,3 +32,15 @@ Phase 5 adds branch-scoped employee profiles, departments, contracts with explic
 Admissions includes campaign attribution, assigned advisers, lead follow-ups and interaction logs, one-time student conversion, acquisition counts, branch coupons with issue-time limits, visits/appointments and ordered check-in/out. Personal inboxes, notification preferences, stored templates and branch announcements have stored/read/blocked logs. External email, SMS and WhatsApp remain blocked until a provider is configured; no messages are claimed sent.
 
 Remaining detailed scope includes advances/loans, configurable paid-leave entitlements, recruitment/contract documents (phase 7), referral-reward accounting, promotional course packages, richer automated reception queues, external delivery providers and recurring notification automation (phase 8). Earlier phase details remain binding until the final verification pass.
+
+## Portals and LMS delivery notes
+
+Phase 6 introduces explicit, administrator-managed links between a login and one student, guardian or teacher profile. Self-linking and email-based identity inference are not allowed. These system roles cannot use generic backoffice APIs. Each portal and class operation checks the linked identity, organization, branch and enrollment/teacher assignment on the server. Unlinking revokes existing sessions.
+
+Students and guardians can view permitted profiles, schedules, attendance, finalized results, issued invoices and recorded receipts/refunds. Guardians can switch between explicitly related children. Family absence, meeting and contact requests are stored for an independent administrator response, which enters the requester's own inbox. Invoice print/PDF uses the saved financial record, not a payment claim.
+
+Teachers have assigned-class rosters with class-only performance aggregates, personal schedules and attendance recording, exam/question authoring, final grade review, lesson and assignment management, moderated class discussions and linked-family announcements. Leave requests require HR to bind the same active employee, teacher and login; the normal independent HR decision workflow applies. Salary statements show only approved/paid teacher payroll snapshots, not another teacher's figures or draft payroll.
+
+The LMS stores published article/video/live/material links, one-time homework submissions, bounded grades/feedback, completed lessons and class discussions. Learners never receive question answer keys. Quizzes submit once, automatically grade supported question types and hold essays for teacher review. Submitted coursework is protected by database locks; published exams keep the earlier grading-rule locks. Demo lessons/materials are explicitly flagged. No shared privileged demo login is added.
+
+Remaining detailed scope: secure PDF/file upload and support tickets are phase 7; payment gateway, conference-provider creation and external delivery remain phase 8/provider configuration. External HTTPS links are labeled resources, not hosted video or access-controlled third-party content. Protected application metadata does not make a third-party URL private. Completion is based on published lesson checks, not proof of video watch time or an accredited certificate. Quiz attempts currently have a start time and manual close, not timed/proctored exam sessions. Broader keyboard/focus, recovery and load testing remain part of the final security pass.
