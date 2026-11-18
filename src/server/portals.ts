@@ -191,7 +191,7 @@ export function registerPortals(app: Hono<any>) {
     ).results;
     const attendance = (
       await c.env.DB.prepare(
-        "SELECT a.status,a.arrival,a.departure,s.starts_at,s.topic,g.name group_name FROM el_attendance a JOIN el_class_sessions s ON s.id=a.session_id JOIN el_groups g ON g.id=s.group_id WHERE a.org_id=? AND a.student_id=? ORDER BY s.starts_at DESC LIMIT 200",
+        "SELECT a.id,a.status,a.arrival,a.departure,s.starts_at,s.topic,s.status session_status,g.name group_name FROM el_attendance a JOIN el_class_sessions s ON s.id=a.session_id JOIN el_groups g ON g.id=s.group_id WHERE a.org_id=? AND a.student_id=? ORDER BY s.starts_at DESC LIMIT 200",
       )
         .bind(a.org_id, id)
         .all()

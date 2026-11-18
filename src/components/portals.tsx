@@ -54,6 +54,7 @@ const statusNames: Record<string, [string, string]> = {
   closed: ["Closed", "مغلق"],
   pending: ["Pending", "قيد المراجعة"],
   accepted: ["Accepted", "مقبول"],
+  approved: ["Approved", "موافق عليه"],
   rejected: ["Rejected", "مرفوض"],
   present: ["Present", "حاضر"],
   absent: ["Absent", "غائب"],
@@ -174,7 +175,8 @@ export function Portal({
     [mode, setMode] = useState("overview"),
     [notices, setNotices] = useState<Row[]>([]),
     [invoice, setInvoice] = useState<Row | null>(null),
-    [library, setLibrary] = useState<Row[]>([]);
+    [library, setLibrary] = useState<Row[]>([]),
+    [correction, setCorrection] = useState<Row | null>(null);
   const teacher = user.system_key === "teacher";
   const date = (n: number) =>
     new Date(n * 1000).toLocaleString(ar ? "ar-EG-u-nu-latn" : "en-GB", {
@@ -687,11 +689,18 @@ export function Portal({
                         L("Group", "المجموعة"),
                         L("Session", "الحصة"),
                         L("Status", "الحالة"),
+                        L("Correction", "تصحيح"),
                       ]}
                       rows={family.attendance.map((r: Row) => [
                         r.group_name,
                         date(r.starts_at),
                         <Badge ar={ar} value={r.status} />,
+                        <button
+                          className="text-sm font-medium text-blue-700 dark:text-blue-300"
+                          onClick={() => setCorrection(r)}
+                        >
+                          {L("Request / history", "طلب / السجل")}
+                        </button>,
                       ])}
                     />
                   ) : (
@@ -890,6 +899,17 @@ export function Portal({
               {L("Print / Save PDF", "طباعة / حفظ PDF")}
             </Button>
           </Dialog>
+        )}
+        {correction && (
+          <PortalCorrectionDialog
+            ar={ar}
+            api={p.api}
+            attendance={correction}
+            close={() => {
+              setCorrection(null);
+              void load();
+            }}
+          />
         )}
       </main>
     </div>
@@ -1094,7 +1114,8 @@ function AttendanceButton(p: Props & { id: string }) {
   const ar = p.t.language === "English",
     L = (e: string, a: string) => (ar ? a : e);
   const [data, setData] = useState<Row | null>(null),
-    [error, setError] = useState("");
+    [error, setError] = useState(""),
+    [correction, setCorrection] = useState<Row | null>(null);
   return (
     <>
       <button
@@ -1125,11 +1146,13 @@ function AttendanceButton(p: Props & { id: string }) {
               const f = new FormData(e.currentTarget);
               try {
                 await p.api("/lms/sessions/" + p.id + "/attendance", "POST", {
-                  rows: data.data.map((s: Row) => ({
-                    student_id: s.student_id,
-                    status: f.get(s.student_id),
-                    notes: "",
-                  })),
+                  rows: data.data
+                    .filter((s: Row) => !s.attendance_id)
+                    .map((s: Row) => ({
+                      student_id: s.student_id,
+                      status: f.get(s.student_id),
+                      notes: "",
+                    })),
                 });
                 p.toast(p.t.saved);
                 setData(null);
@@ -1143,6 +1166,7 @@ function AttendanceButton(p: Props & { id: string }) {
                 <Select
                   name={s.student_id}
                   defaultValue={s.status ?? "present"}
+                  disabled={!!s.attendance_id}
                 >
                   {["present", "absent", "late", "excused", "left_early"].map(
                     (v) => (
@@ -1152,6 +1176,18 @@ function AttendanceButton(p: Props & { id: string }) {
                     ),
                   )}
                 </Select>
+                {s.attendance_id && (
+                  <button
+                    type="button"
+                    className="mt-2 text-sm font-medium text-blue-700 dark:text-blue-300"
+                    onClick={() => {
+                      setData(null);
+                      setCorrection({ ...s, id: s.attendance_id });
+                    }}
+                  >
+                    {L("Request correction / history", "طلب تصحيح / السجل")}
+                  </button>
+                )}
               </Field>
             ))}
             {error && (
@@ -1159,9 +1195,22 @@ function AttendanceButton(p: Props & { id: string }) {
                 {error}
               </p>
             )}
-            <Button type="submit">{L("Save attendance", "حفظ الحضور")}</Button>
+            <Button
+              type="submit"
+              disabled={!data.data.some((s: Row) => !s.attendance_id)}
+            >
+              {L("Save new attendance", "حفظ الحضور الجديد")}
+            </Button>
           </form>
         </Dialog>
+      )}
+      {correction && (
+        <PortalCorrectionDialog
+          ar={ar}
+          api={p.api}
+          attendance={correction}
+          close={() => setCorrection(null)}
+        />
       )}
     </>
   );
@@ -2348,5 +2397,171 @@ export function PortalAdmin(p: Props) {
         )}
       </Panel>
     </div>
+  );
+}
+
+function PortalCorrectionDialog({
+  ar,
+  api,
+  attendance,
+  close,
+}: {
+  ar: boolean;
+  api: Api;
+  attendance: Row;
+  close: () => void;
+}) {
+  const L = (e: string, a: string) => (ar ? a : e);
+  const [history, setHistory] = useState<Row[] | null>(null),
+    [pending, setPending] = useState(false),
+    [error, setError] = useState(""),
+    [notice, setNotice] = useState(""),
+    [busy, setBusy] = useState(false);
+  const path = "/portal/attendance/" + attendance.id + "/corrections";
+  async function load() {
+    try {
+      const data = await api(path);
+      setHistory(data.data);
+      setPending(data.pending);
+    } catch (e) {
+      setError(String(e));
+    }
+  }
+  useEffect(() => {
+    void load();
+  }, [attendance.id]);
+  return (
+    <Dialog
+      title={L("Attendance correction request", "طلب تصحيح حضور")}
+      close={close}
+    >
+      <p className="mb-4 text-sm leading-7 text-slate-500">
+        {L(
+          "A separate authorized reviewer must approve. This request does not change saved attendance. Only status can be requested here; recorded times and internal notes stay unchanged. Up to 100 correction requests per account in 24 hours.",
+          "مسؤول تاني عنده صلاحية لازم يوافق. الطلب مش بيغير الحضور المحفوظ. هنا تقدر تطلب تغيير الحالة بس؛ الأوقات والملاحظات الداخلية مش بتتغير. لحد 100 طلب للحساب خلال 24 ساعة.",
+        )}
+      </p>
+      {error && (
+        <p role="alert" className="mb-3 text-sm text-red-700">
+          {error}
+        </p>
+      )}
+      {notice && (
+        <p role="status" className="mb-3 text-sm text-teal-700">
+          {notice}
+        </p>
+      )}
+      {history !== null && (
+        <>
+          {pending ? (
+            <p className="rounded-xl bg-blue-50 p-3 text-sm text-blue-800 dark:bg-slate-800 dark:text-blue-200">
+              {L(
+                "A correction is already pending. Please wait for the review.",
+                "فيه طلب تصحيح قيد المراجعة بالفعل. استنى نتيجة المراجعة.",
+              )}
+            </p>
+          ) : (
+            <form
+              className="space-y-4"
+              onSubmit={async (e) => {
+                e.preventDefault();
+                const fd = new FormData(e.currentTarget);
+                setBusy(true);
+                setError("");
+                try {
+                  await api(path, "POST", {
+                    status: fd.get("status"),
+                    reason: fd.get("reason"),
+                  });
+                  setNotice(
+                    L(
+                      "Request submitted for independent review.",
+                      "الطلب اتسجل للمراجعة المستقلة.",
+                    ),
+                  );
+                  await load();
+                } catch (e) {
+                  setError(String(e));
+                } finally {
+                  setBusy(false);
+                }
+              }}
+            >
+              <Field
+                label={L("Requested attendance status", "حالة الحضور المطلوبة")}
+              >
+                <Select
+                  name="status"
+                  aria-label={L(
+                    "Requested attendance status",
+                    "حالة الحضور المطلوبة",
+                  )}
+                  required
+                  defaultValue=""
+                >
+                  <option value="" disabled>
+                    {L("Choose status", "اختار الحالة")}
+                  </option>
+                  {["present", "absent", "late", "excused", "left_early"]
+                    .filter((v) => v !== attendance.status)
+                    .map((v) => (
+                      <option key={v} value={v}>
+                        {statusNames[v][ar ? 1 : 0]}
+                      </option>
+                    ))}
+                </Select>
+              </Field>
+              <Field label={L("Reason for correction", "سبب التصحيح")}>
+                <textarea
+                  aria-label={L("Reason for correction", "سبب التصحيح")}
+                  name="reason"
+                  required
+                  minLength={5}
+                  maxLength={1000}
+                  className={inputClass + " min-h-24"}
+                />
+              </Field>
+              <Button type="submit" disabled={busy}>
+                {L("Submit correction request", "ابعت طلب التصحيح")}
+              </Button>
+            </form>
+          )}
+          <h3 className="mb-3 mt-6 font-semibold">
+            {L("Your requests (latest 30)", "طلباتك (آخر 30)")}
+          </h3>
+          {history.length ? (
+            <div className="space-y-3">
+              {history.map((r) => (
+                <div
+                  key={r.id}
+                  className="rounded-xl border border-slate-200 p-3 dark:border-slate-700"
+                >
+                  <div className="flex flex-wrap gap-2">
+                    <Badge value={r.new_status} ar={ar} />
+                    <Badge value={r.status} ar={ar} />
+                  </div>
+                  <p className="my-2 whitespace-pre-wrap break-words text-sm">
+                    {r.reason}
+                  </p>
+                  {r.decision_note && (
+                    <p className="whitespace-pre-wrap break-words text-sm text-slate-500">
+                      {L("Review response: ", "رد المراجع: ")}
+                      {r.decision_note}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-slate-500">
+              {L(
+                "No requests from this account yet.",
+                "مفيش طلبات من الحساب ده لسه.",
+              )}
+            </p>
+          )}
+        </>
+      )}
+    </Dialog>
   );
 }
