@@ -8,7 +8,11 @@ export interface Database {
   prepare(sql: string): Statement;
   batch(statements: Statement[]): Promise<unknown[]>;
 }
-export type Env = { DB: Database; ENVIRONMENT?: string };
+export type Env = {
+  DB: Database;
+  ENVIRONMENT?: string;
+  DOCUMENT_ENCRYPTION_KEY?: string;
+};
 export const uid = () => crypto.randomUUID();
 export const now = () => Math.floor(Date.now() / 1000);
 

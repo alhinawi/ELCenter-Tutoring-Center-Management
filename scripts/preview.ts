@@ -37,7 +37,11 @@ serve({
   fetch: async (req) => {
     const u = new URL(req.url);
     if (u.pathname.startsWith("/api/"))
-      return app.fetch(req, { DB: db, ENVIRONMENT: "test" });
+      return app.fetch(req, {
+        DB: db,
+        ENVIRONMENT: "test",
+        DOCUMENT_ENCRYPTION_KEY: process.env.DOCUMENT_ENCRYPTION_KEY,
+      });
     let p = resolve(root, "." + decodeURIComponent(u.pathname));
     if (!p.startsWith(root + "/") && p !== root)
       return new Response("", { status: 403 });

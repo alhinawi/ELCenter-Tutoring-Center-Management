@@ -403,7 +403,7 @@ export function Reconciliation({
     </div>
   );
 }
-export function printRecord(title: string, body: HTMLElement) {
+export function printRecord(title: string, body: HTMLElement, wide = false) {
   const frame = document.createElement("iframe");
   frame.style.position = "fixed";
   frame.style.width = "1px";
@@ -426,6 +426,9 @@ export function printRecord(title: string, body: HTMLElement) {
   const style = doc.createElement("style");
   style.textContent =
     "body{font:14px Arial,sans-serif;color:#17233e;padding:30px}h1{font-size:26px}button,form,input,select{display:none!important}section,div{break-inside:avoid}[class*=flex]{display:flex;justify-content:space-between;align-items:start;gap:24px;margin:12px 0}[class*=rounded]{border:1px solid #ddd;padding:14px;margin:14px 0}span+span{margin-inline-start:8px}h3{margin-top:24px}p{margin:8px 0}table{width:100%;border-collapse:collapse}td,th{padding:10px;border-bottom:1px solid #ddd;text-align:start}";
+  if (wide)
+    style.textContent +=
+      "@page{size:A3 landscape;margin:12mm}body{padding:0;font-size:10px}td,th{padding:6px;white-space:normal;overflow-wrap:normal}section,div{break-inside:auto}tr{break-inside:avoid}thead{display:table-header-group}";
   head.appendChild(style);
   root.appendChild(head);
   const b = doc.createElement("body"),

@@ -39,7 +39,7 @@ export async function digest(s: string) {
 }
 export function assert(
   condition: unknown,
-  status: 400 | 401 | 403 | 404 | 409 | 429,
+  status: 400 | 401 | 403 | 404 | 409 | 429 | 503,
   message: string,
 ): asserts condition {
   if (!condition) throw new HTTPException(status, { message });

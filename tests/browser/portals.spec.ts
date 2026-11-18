@@ -141,6 +141,25 @@ test("student, guardian and teacher use linked portals and real coursework", asy
   await tp.getByRole("button", { name: "Learning space", exact: true }).click();
   await tp.getByRole("button", { name: "Open class", exact: true }).click();
   await tp
+    .getByRole("button", { name: "Upload document", exact: true })
+    .click();
+  await tp.getByLabel("Title", { exact: true }).fill("Class reading sheet");
+  await tp.getByLabel("Category", { exact: true }).fill("Learning material");
+  await tp
+    .getByLabel("Share with the linked student, family or class portal", {
+      exact: false,
+    })
+    .check();
+  await tp.getByLabel("File", { exact: true }).setInputFiles({
+    name: "reading.pdf",
+    mimeType: "application/pdf",
+    buffer: Buffer.from("%PDF-1.4\nFictional class attachment\n%%EOF"),
+  });
+  await tp.getByRole("button", { name: "Encrypt & save", exact: true }).click();
+  await expect(
+    tp.getByRole("cell", { name: "Class reading sheet", exact: true }),
+  ).toBeVisible();
+  await tp
     .getByRole("button", { name: "Introduce yourself", exact: false })
     .click();
   await expect(
@@ -197,6 +216,12 @@ test("student, guardian and teacher use linked portals and real coursework", asy
   await sp.reload();
   await sp.getByRole("button", { name: "Learning space", exact: true }).click();
   await sp.getByRole("button", { name: "Open class", exact: true }).click();
+  await expect(
+    sp.getByRole("cell", { name: "Class reading sheet", exact: true }),
+  ).toBeVisible();
+  await expect(
+    sp.getByRole("button", { name: "Upload document", exact: true }),
+  ).toHaveCount(0);
   const row = sp.getByRole("row").filter({ hasText: "Independent checkpoint" });
   await row.getByRole("button", { name: "Open exam", exact: true }).click();
   await sp.getByLabel("Your answer", { exact: true }).fill("4");

@@ -1,3 +1,9 @@
+import { registerResourceDemo } from "./demo-resources";
+import { registerReports } from "./reports";
+import { registerInventory } from "./inventory";
+import { registerLibrary } from "./library";
+import { registerDocuments } from "./documents";
+import { registerSupport } from "./support";
 import { registerPortalDemo } from "./demo-portals";
 import { registerLms } from "./lms";
 import { registerPortals } from "./portals";
@@ -91,6 +97,18 @@ app.onError((e, c) => {
       503,
     );
   }
+  if (
+    /Document store capacity|Document version capacity|Library copy is reserved|Stock sale|Stock movements|Stock transfer requires|Purchase order transition|Library copy or borrower|Library return|Support ticket identity|Document versions|CHECK constraint failed: quantity/.test(
+      String(e),
+    )
+  )
+    return c.json(
+      {
+        error:
+          "The record changed or available stock/loan rules prevent this operation",
+      },
+      409,
+    );
   if (String(e).includes("UNIQUE constraint"))
     return c.json({ error: "This record already exists" }, 409);
   console.error(
@@ -797,8 +815,14 @@ registerFinance(app);
 registerFinancePlans(app);
 registerOperations(app);
 registerPortals(app);
+registerSupport(app);
+registerInventory(app);
+registerLibrary(app);
+registerReports(app);
+registerDocuments(app);
 registerLms(app);
 registerPortalDemo(app);
+registerResourceDemo(app);
 registerStaffPayroll(app);
 registerOperationsDemo(app);
 registerNotifications(app);
