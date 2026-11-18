@@ -1,3 +1,4 @@
+import { registerCoursePackages } from "./course-packages";
 import { registerCoursePrerequisites } from "./course-prerequisites";
 import { registerAttendanceCorrections } from "./attendance-corrections";
 import { registerOrganizationProfile } from "./organization-profile";
@@ -103,6 +104,14 @@ app.onError((e, c) => {
       {
         error:
           "Course prerequisite rule failed: completion required, inactive course, cycle or limit.",
+      },
+      409,
+    );
+  if (/Course package/.test(String(e)))
+    return c.json(
+      {
+        error:
+          "Course package could not be saved. Check current courses, branch and immutable package terms.",
       },
       409,
     );
@@ -884,6 +893,7 @@ registerInventory(app);
 registerLibrary(app);
 registerReports(app);
 registerSystem(app);
+registerCoursePackages(app);
 registerCoursePrerequisites(app);
 registerAttendanceCorrections(app);
 registerCustomFields(app);
