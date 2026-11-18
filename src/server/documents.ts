@@ -38,12 +38,12 @@ const schema = z.object({
   mime: z.enum(["application/pdf", "image/png", "image/jpeg"]),
   data: z.string().max(174768),
 });
-function b64(bytes: Uint8Array) {
+export function b64(bytes: Uint8Array) {
   let s = "";
   for (const b of bytes) s += String.fromCharCode(b);
   return btoa(s);
 }
-function decode(s: string) {
+export function decode(s: string) {
   assert(/^[A-Za-z0-9+/]*={0,2}$/.test(s), 400, "Invalid file encoding");
   try {
     return Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
@@ -51,7 +51,7 @@ function decode(s: string) {
     assert(false, 400, "Invalid file encoding");
   }
 }
-async function key(c: AppContext) {
+export async function key(c: AppContext) {
   const secret = c.env.DOCUMENT_ENCRYPTION_KEY;
   assert(
     secret && secret.length >= 32,
@@ -66,7 +66,7 @@ async function key(c: AppContext) {
     ["encrypt", "decrypt"],
   );
 }
-function validateFile(d: { mime: string; data: string }) {
+export function validateFile(d: { mime: string; data: string }) {
   const bytes = decode(d.data)!;
   assert(
     bytes.length > 0 && bytes.length <= MAX,

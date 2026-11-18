@@ -1,4 +1,5 @@
 "use client";
+import { ProfilePhoto } from "./profile-photo";
 import { useModalFocus } from "./modal-focus";
 import { CoursePackages } from "./course-packages";
 import { CoursePrerequisites } from "./course-prerequisites";
@@ -851,6 +852,15 @@ export default function Academic({
             <p>{t.loading}</p>
           ) : (
             <div className="grid gap-6">
+              {["students", "teachers"].includes(entity) && (
+                <ProfilePhoto
+                  api={api}
+                  ar={ar}
+                  entity={entity}
+                  id={details.id}
+                  editable={allowed(entity, "edit")}
+                />
+              )}
               <div className="grid gap-3 sm:grid-cols-2">
                 {fields
                   .filter((f) => !["branch_id", "notes"].includes(f.key))

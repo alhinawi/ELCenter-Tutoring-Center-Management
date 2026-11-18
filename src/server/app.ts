@@ -1,3 +1,4 @@
+import { registerProfilePhotos } from "./profile-photos";
 import { registerInvoiceNumbering } from "./invoice-numbering";
 import { registerInvoicePrint } from "./invoice-print";
 import { registerCoursePackages } from "./course-packages";
@@ -905,6 +906,7 @@ registerCustomFields(app);
 registerOrganizationProfile(app);
 registerMfa(app);
 registerDocuments(app);
+registerProfilePhotos(app);
 registerLms(app);
 registerPortalDemo(app);
 registerResourceDemo(app);
