@@ -1,4 +1,5 @@
 "use client";
+import { OrganizationProfile } from "./organization-profile";
 import Operations from "./operations";
 import { CustomFieldDefinitions } from "./custom-fields";
 import { SystemControls } from "./system-controls";
@@ -402,7 +403,7 @@ export default function Workspace() {
             </button>
             <div className="min-w-0">
               <p className="max-w-[220px] truncate text-xs text-slate-400">
-                {me.organization.name}
+                {me.organization.display_name || me.organization.name}
               </p>
               <div className="mt-1 flex items-center gap-2 text-sm font-semibold">
                 <span className="hidden text-slate-400 sm:inline">
@@ -1367,6 +1368,12 @@ function Organization({
   return (
     <>
       <Heading title={t.organization} sub={t.organizationHelp} />
+      <OrganizationProfile
+        onSaved={reload}
+        api={api}
+        ar={t.language === "English"}
+        editable={editable}
+      />
       <CustomFieldDefinitions
         api={api}
         ar={t.language === "English"}
