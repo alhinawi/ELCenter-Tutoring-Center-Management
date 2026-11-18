@@ -1,4 +1,5 @@
 "use client";
+import Finance from "./finance";
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import {
   GraduationCap,
@@ -51,6 +52,7 @@ type User = {
 type Me = { user: User; organization: Row };
 type Tab =
   | Entity
+  | "finance"
   | "schedule"
   | "assessments"
   | "dashboard"
@@ -76,6 +78,7 @@ const nav = [
   { key: "branches", icon: Building2, resource: "branches" },
   ...academicNav,
   { key: "schedule", icon: CalendarDays, resource: "sessions" },
+  { key: "finance", icon: Building2, resource: "finance" },
   { key: "assessments", icon: GraduationCap, resource: "exams" },
   { key: "users", icon: Users, resource: "users" },
   { key: "roles", icon: ShieldCheck, resource: "roles" },
@@ -250,7 +253,11 @@ export default function Workspace() {
         </p>
         <nav className="min-h-0 space-y-1 overflow-y-auto">
           {nav
-            .filter((n) => allowed(n.resource))
+            .filter(
+              (n) =>
+                allowed(n.resource) ||
+                (n.key === "finance" && allowed("payroll")),
+            )
             .map(({ key, icon: Icon }) => (
               <button
                 key={key}
@@ -264,15 +271,19 @@ export default function Workspace() {
                 <Icon size={19} />
                 {key in academicNames
                   ? academicNames[key as Entity][lang === "ar" ? 1 : 0]
-                  : key === "schedule"
+                  : key === "finance"
                     ? lang === "ar"
-                      ? "الجدول والحضور"
-                      : "Timetable & attendance"
-                    : key === "assessments"
+                      ? "الحسابات والمرتبات"
+                      : "Finance & payroll"
+                    : key === "schedule"
                       ? lang === "ar"
-                        ? "الامتحانات والمستوى"
-                        : "Exams & performance"
-                      : t[key as keyof T]}
+                        ? "الجدول والحضور"
+                        : "Timetable & attendance"
+                      : key === "assessments"
+                        ? lang === "ar"
+                          ? "الامتحانات والمستوى"
+                          : "Exams & performance"
+                        : t[key as keyof T]}
                 {tab === key && (
                   <span className="ms-auto h-1.5 w-1.5 rounded-full bg-blue-600" />
                 )}
@@ -339,15 +350,19 @@ export default function Workspace() {
                 />
                 {tab in academicNames
                   ? academicNames[tab as Entity][lang === "ar" ? 1 : 0]
-                  : tab === "schedule"
+                  : tab === "finance"
                     ? lang === "ar"
-                      ? "الجدول والحضور"
-                      : "Timetable & attendance"
-                    : tab === "assessments"
+                      ? "الحسابات والمرتبات"
+                      : "Finance & payroll"
+                    : tab === "schedule"
                       ? lang === "ar"
-                        ? "الامتحانات والمستوى"
-                        : "Exams & performance"
-                      : t[tab as keyof T]}
+                        ? "الجدول والحضور"
+                        : "Timetable & attendance"
+                      : tab === "assessments"
+                        ? lang === "ar"
+                          ? "الامتحانات والمستوى"
+                          : "Exams & performance"
+                        : t[tab as keyof T]}
               </div>
             </div>
           </div>
@@ -369,7 +384,16 @@ export default function Workspace() {
               {error}
             </div>
           )}
-          {tab === "schedule" ? (
+          {tab === "finance" ? (
+            <Finance
+              t={t}
+              api={api}
+              allowed={allowed}
+              toast={toast}
+              currency={String(me.organization.currency)}
+              timezone={String(me.organization.timezone)}
+            />
+          ) : tab === "schedule" ? (
             <Schedule
               t={t}
               api={api}
@@ -506,6 +530,15 @@ function Auth({
         });
       if (session.user?.csrf)
         await fetch("/api/settings/demo/learning", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-csrf-token": session.user.csrf,
+          },
+          body: "{}",
+        });
+      if (session.user?.csrf)
+        await fetch("/api/settings/demo/finance", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -1210,8 +1243,10 @@ function Organization({
                 await api("/settings/demo", "PUT", {
                   enabled: !org.demo_enabled,
                 });
-                if (!org.demo_enabled)
+                if (!org.demo_enabled) {
                   await api("/settings/demo/learning", "POST", {});
+                  await api("/settings/demo/finance", "POST", {});
+                }
                 await reload();
                 toast();
               } catch (e) {
