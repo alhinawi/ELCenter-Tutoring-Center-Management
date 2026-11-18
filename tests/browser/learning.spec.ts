@@ -34,7 +34,7 @@ test("calendar, attendance and assessment screens work in both languages", async
   await page.getByLabel("Student code or QR", { exact: true }).fill("ST-101");
   await page.getByRole("button", { name: "Mark", exact: true }).click();
   await expect(page.getByRole("status")).toContainText(
-    "Student marked present",
+    "attendance is already recorded",
   );
 
   await page.screenshot({

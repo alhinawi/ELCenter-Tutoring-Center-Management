@@ -36,8 +36,8 @@ export default function AttendanceScanner({
           ? "الطالب اتحدد حاضر. احفظ عشان تأكد."
           : "Student marked present. Save to confirm."
         : ar
-          ? "الكود مش موجود في كشف الحصة دي."
-          : "This code is not in this session roster.",
+          ? "الكود مش مؤهل في الحصة دي أو الحضور متسجل بالفعل. استخدم طلب التصحيح للسجلات المتسجلة."
+          : "This code is not eligible here or attendance is already recorded. Use a correction request for recorded rows.",
     );
     if (found) {
       setValue("");

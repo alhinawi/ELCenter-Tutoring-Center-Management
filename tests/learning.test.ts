@@ -188,7 +188,7 @@ test("scheduling, attendance and assessment", async (t) => {
     },
   );
   await t.test(
-    "correction updates records and removes stale absence alert",
+    "recorded attendance now requires independent correction approval",
     async () => {
       assert.equal(
         (
@@ -196,12 +196,12 @@ test("scheduling, attendance and assessment", async (t) => {
             rows: [{ student_id: students[0].id, status: "late" }],
           })
         ).r.status,
-        200,
+        409,
       );
       assert.equal(
         (raw.prepare("SELECT count(*) n FROM el_academic_alerts").get() as any)
           .n,
-        0,
+        1,
       );
     },
   );
@@ -360,7 +360,7 @@ test("scheduling, attendance and assessment", async (t) => {
     async () => {
       const data = (await call("/academic/performance")).j.data;
       const s = data.find((s: any) => s.id === students[0].id);
-      assert.equal(s.attendance_percent, 100);
+      assert.equal(s.attendance_percent, 0);
       assert.equal(s.exam_percent, 100);
     },
   );
