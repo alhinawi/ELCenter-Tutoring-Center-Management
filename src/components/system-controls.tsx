@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ShieldCheck, Search, Clock } from "lucide-react";
 import { MfaSettings } from "./mfa-settings";
 import { Button, Card, Field, Input, Select } from "./ui";
@@ -23,9 +23,40 @@ export function SystemControls({
     [history, setHistory] = useState<Row[]>([]),
     [jobs, setJobs] = useState<Row | null>(null),
     [results, setResults] = useState<Record<string, Row[]>>({}),
+    [searchQuery, setSearchQuery] = useState(""),
+    [searchKind, setSearchKind] = useState(""),
+    [searchBusy, setSearchBusy] = useState(false),
+    [searched, setSearched] = useState(false),
+    [searchMore, setSearchMore] = useState<Record<string, boolean>>({}),
     [error, setError] = useState(""),
     [notice, setNotice] = useState(""),
     [busy, setBusy] = useState(false);
+  const searchRequest = useRef(0);
+  const searchNames: Record<string, string> = {
+    students: L("Students", "الطلاب"),
+    guardians: L("Guardians", "أولياء الأمور"),
+    teachers: L("Teachers", "المدرسين"),
+    employees: L("Employees", "الموظفين"),
+    courses: L("Courses", "الكورسات"),
+    groups: L("Groups", "المجموعات"),
+    branches: L("Branches", "الفروع"),
+    invoices: L("Invoices", "الفواتير"),
+    payments: L("Payments", "المدفوعات"),
+    journals: L("Transactions", "القيود"),
+    support_tickets: L("Tickets", "التذاكر"),
+    documents: L("Documents", "المستندات"),
+  };
+  function clearSearch() {
+    searchRequest.current++;
+    setResults({});
+    setSearchMore({});
+    setSearchBusy(false);
+    setSearched(false);
+    setError("");
+  }
+  useEffect(() => {
+    if (mode !== "search") clearSearch();
+  }, [mode]);
   async function refresh(m = mode) {
     setError("");
     try {
@@ -263,17 +294,28 @@ export function SystemControls({
           ) : mode === "search" ? (
             <div className="space-y-5">
               <form
-                className="flex gap-3"
+                className="grid gap-3 sm:grid-cols-[1fr_12rem_auto]"
                 onSubmit={async (e) => {
                   e.preventDefault();
-                  setError("");
+                  clearSearch();
+                  const request = searchRequest.current;
+                  setSearchBusy(true);
                   try {
-                    const q = String(new FormData(e.currentTarget).get("q"));
-                    setResults(
-                      (await api("/search?q=" + encodeURIComponent(q))).data,
+                    const response = await api(
+                      "/search?q=" +
+                        encodeURIComponent(searchQuery) +
+                        "&kind=" +
+                        searchKind,
                     );
+                    if (request === searchRequest.current) {
+                      setResults(response.data);
+                      setSearched(true);
+                      setSearchMore(response.more ?? {});
+                    }
                   } catch (e) {
-                    setError(String(e));
+                    if (request === searchRequest.current) setError(String(e));
+                  } finally {
+                    if (request === searchRequest.current) setSearchBusy(false);
                   }
                 }}
               >
@@ -281,6 +323,11 @@ export function SystemControls({
                   autoFocus
                   aria-label={L("Search records", "ابحث في السجلات")}
                   name="q"
+                  value={searchQuery}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    clearSearch();
+                  }}
                   placeholder={L(
                     "Start of a name or reference, 2+ characters",
                     "بداية الاسم أو المرجع، حرفين على الأقل",
@@ -289,33 +336,42 @@ export function SystemControls({
                   minLength={2}
                   maxLength={80}
                 />
-                <Button type="submit">{L("Search", "بحث")}</Button>
+                <Select
+                  aria-label={L("Search module", "قسم البحث")}
+                  value={searchKind}
+                  onChange={(e) => {
+                    setSearchKind(e.target.value);
+                    clearSearch();
+                  }}
+                >
+                  <option value="">
+                    {L("All permitted modules", "كل الأقسام المسموحة")}
+                  </option>
+                  {Object.entries(searchNames).map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </Select>
+                <Button type="submit" disabled={searchBusy}>
+                  {L("Search", "بحث")}
+                </Button>
               </form>
+              {searchBusy && (
+                <p role="status" className="text-sm text-slate-500">
+                  {L("Searching…", "جاري البحث…")}
+                </p>
+              )}
               <p className="text-xs text-slate-500">
                 {L(
-                  "Up to eight prefix matches in each permitted module. Ctrl/Cmd+K opens search.",
-                  "لحد 8 نتائج ببداية النص في كل قسم متاح لصلاحياتك. Ctrl/Cmd+K يفتح البحث.",
+                  "Up to eight prefix matches per permitted module, using the first46 UTF-8 bytes. A module filter never grants access. A more-matches notice means narrow the prefix; this is not a complete export. Ctrl/Cmd+K opens search.",
+                  "لحد8 نتايج ببداية النص لكل قسم مسموح، بأول46 بايت UTF-8. اختيار القسم مش بيدي صلاحية. تنبيه نتايج أكتر معناه ضيّق بداية الاسم؛ ده مش تصدير كامل. Ctrl/Cmd+K يفتح البحث.",
                 )}
               </p>
               {Object.entries(results).map(([kind, rows]) => (
                 <section key={kind}>
                   <h3 className="mb-2 font-semibold">
-                    {(
-                      {
-                        students: L("Students", "الطلاب"),
-                        guardians: L("Guardians", "أولياء الأمور"),
-                        teachers: L("Teachers", "المدرسين"),
-                        employees: L("Employees", "الموظفين"),
-                        courses: L("Courses", "الكورسات"),
-                        groups: L("Groups", "المجموعات"),
-                        branches: L("Branches", "الفروع"),
-                        invoices: L("Invoices", "الفواتير"),
-                        payments: L("Payments", "المدفوعات"),
-                        journals: L("Transactions", "القيود"),
-                        support_tickets: L("Tickets", "التذاكر"),
-                        documents: L("Documents", "المستندات"),
-                      } as Row
-                    )[kind] ?? kind}
+                    {searchNames[kind] ?? kind}
                   </h3>
                   {rows.length ? (
                     <ul className="divide-y divide-slate-100 rounded-xl border border-slate-200 dark:border-slate-700">
@@ -330,8 +386,35 @@ export function SystemControls({
                       {L("No matches", "مفيش نتائج")}
                     </p>
                   )}
+                  {searchMore[kind] && (
+                    <p
+                      role="status"
+                      className="mt-2 text-xs text-amber-700 dark:text-amber-300"
+                    >
+                      {L(
+                        "More than8 matches. Narrow the prefix to find other records.",
+                        "في أكتر من8 نتايج. ضيّق بداية الاسم عشان توصل لسجلات تانية.",
+                      )}
+                    </p>
+                  )}
                 </section>
               ))}
+              {!searchBusy &&
+                searchKind &&
+                Object.keys(results).length === 0 &&
+                searchQuery.length >= 2 &&
+                !error && (
+                  <p className="text-xs text-slate-500">
+                    {L(
+                      searched
+                        ? "No permitted matches returned for this module."
+                        : "Submit search to check this module. Only permitted results are returned.",
+                      searched
+                        ? "مفيش نتايج مسموحة رجعت للقسم ده."
+                        : "اضغط بحث عشان تفحص القسم. النتايج بترجع حسب صلاحياتك بس.",
+                    )}
+                  </p>
+                )}
             </div>
           ) : (
             jobs && (

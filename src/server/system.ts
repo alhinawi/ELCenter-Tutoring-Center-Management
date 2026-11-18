@@ -628,8 +628,25 @@ export function registerSystem(app: Hono<any>) {
   app.get("/api/search", async (c: AppContext) => {
     const a = c.get("actor"),
       q = z.string().trim().min(2).max(80).parse(c.req.query("q")),
-      kind = c.req.query("kind"),
-      data: Record<string, unknown> = {};
+      kind = z
+        .enum([
+          "",
+          "students",
+          "guardians",
+          "teachers",
+          "employees",
+          "courses",
+          "groups",
+          "branches",
+          "invoices",
+          "payments",
+          "journals",
+          "support_tickets",
+          "documents",
+        ])
+        .parse(c.req.query("kind") ?? ""),
+      data: Record<string, unknown> = {},
+      more: Record<string, boolean> = {};
     const defs = [
       ["students", "students", "name"],
       ["guardians", "guardians", "name"],
@@ -651,14 +668,16 @@ export function registerSystem(app: Hono<any>) {
       )
         continue;
       const branch = table === "branches" ? "id" : "branch_id";
-      data[table] = (
+      const found = (
         await c.env.DB.prepare(
-          `SELECT id,${title} label FROM el_${table} WHERE org_id=? AND (? IS NULL OR ${branch}=?) AND ${title} LIKE ? ORDER BY ${title},id LIMIT 8`,
+          `SELECT id,${title} label FROM el_${table} WHERE org_id=? AND (? IS NULL OR ${branch}=?) AND ${title} LIKE ? ORDER BY ${title},id LIMIT 9`,
         )
           .bind(a.org_id, a.branch_id, a.branch_id, searchPattern(q))
           .all()
       ).results;
+      data[table] = found.slice(0, 8);
+      more[table] = found.length > 8;
     }
-    return c.json({ data, limit_per_kind: 8 });
+    return c.json({ data, more, limit_per_kind: 8 });
   });
 }
