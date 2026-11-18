@@ -1,5 +1,6 @@
 "use client";
 import { useModalFocus } from "./modal-focus";
+import { OrganizationLogo } from "./organization-logo";
 import { OrganizationProfile } from "./organization-profile";
 import Operations from "./operations";
 import { CustomFieldDefinitions } from "./custom-fields";
@@ -402,6 +403,7 @@ export default function Workspace() {
             >
               <Menu size={21} />
             </button>
+            <OrganizationLogo api={api} ar={t.language === "English"} />
             <div className="hidden min-w-0 sm:block">
               <p className="max-w-[220px] truncate text-xs text-slate-400">
                 {me.organization.display_name || me.organization.name}

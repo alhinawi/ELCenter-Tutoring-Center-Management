@@ -1,4 +1,5 @@
 "use client";
+import { OrganizationLogoSettings } from "./organization-logo";
 import { useEffect, useState } from "react";
 import { Card, Button, Field, Input, Select } from "./ui";
 type Row = Record<string, any>;
@@ -53,6 +54,7 @@ export function OrganizationProfile({
           {notice}
         </p>
       )}
+      <OrganizationLogoSettings api={api} ar={ar} editable={editable} />
       {data && (
         <form
           className="grid gap-4 sm:grid-cols-2"
