@@ -4,8 +4,8 @@ Each phase is a real pull request with tested server persistence and usable scre
 
 | Phase | Scope | State |
 | --- | --- | --- |
-| 1 | Foundation, authentication, organization, branches, users, RBAC, dashboard | Implemented, validation underway |
-| 2 | Students, guardians, teachers, courses, groups, classrooms | Next |
+| 1 | Foundation, authentication, organization, branches, users, RBAC, dashboard | Merged, PR #1 |
+| 2 | Students, guardians, teachers, courses, groups, classrooms, safe demo toggle | Implemented, validation underway |
 | 3 | Timetables, sessions, attendance, exams, performance | Planned |
 | 4 | Invoices, payments, expenses, accounting, payroll | Planned |
 | 5 | HR, CRM, notifications, marketing, reception | Planned |
