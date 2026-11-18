@@ -1,0 +1,15 @@
+CREATE INDEX IF NOT EXISTS el_students_name ON el_students(org_id,name COLLATE NOCASE);
+CREATE INDEX IF NOT EXISTS el_guardians_name ON el_guardians(org_id,name COLLATE NOCASE);
+CREATE INDEX IF NOT EXISTS el_teachers_name ON el_teachers(org_id,name COLLATE NOCASE);
+CREATE INDEX IF NOT EXISTS el_courses_name ON el_courses(org_id,name COLLATE NOCASE);
+CREATE INDEX IF NOT EXISTS el_groups_name ON el_groups(org_id,name COLLATE NOCASE);
+CREATE INDEX IF NOT EXISTS el_classrooms_name ON el_classrooms(org_id,name COLLATE NOCASE);
+CREATE INDEX IF NOT EXISTS el_classrooms_branch ON el_classrooms(org_id,branch_id);
+CREATE INDEX IF NOT EXISTS el_branches_name ON el_branches(org_id,name COLLATE NOCASE);
+CREATE INDEX IF NOT EXISTS el_branches_code ON el_branches(org_id,code COLLATE NOCASE);
+CREATE INDEX IF NOT EXISTS el_attendance_session ON el_attendance(org_id,session_id);
+CREATE INDEX IF NOT EXISTS el_availability_teacher ON el_teacher_availability(org_id,teacher_id);
+CREATE INDEX IF NOT EXISTS el_holidays_date ON el_holidays(org_id,date,branch_id);
+CREATE INDEX IF NOT EXISTS el_exams_group ON el_exams(org_id,group_id,scheduled_at);
+CREATE INDEX IF NOT EXISTS el_questions_exam ON el_questions(org_id,exam_id,position);
+CREATE INDEX IF NOT EXISTS el_enrollments_student ON el_enrollments(org_id,student_id);

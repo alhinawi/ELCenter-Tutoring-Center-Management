@@ -2,7 +2,7 @@
 
 A bilingual, multi-branch education operations platform. Next.js and Tailwind on the frontend, Hono Pages Functions and a relational Cloudflare D1 database on the server.
 
-## Working release: Foundation and academic core
+## Working release: Foundation and academic operations
 
 - Organization creation and real email/password authentication, salted PBKDF2 hashes, hashed sessions, HttpOnly cookies and CSRF checks.
 - 18 seeded roles, configurable custom roles and granular server-checked permissions. Branch-scoped memberships and organization isolation.
@@ -16,6 +16,10 @@ A bilingual, multi-branch education operations platform. Next.js and Tailwind on
 - Approval-based student branch transfers preserve academic history; group transfers are atomic.
 - Searchable, sortable, paginated records, validated Excel imports (up to 160 rows per atomic import), spreadsheet-safe CSV exports and course duplication.
 - Admin Demo mode switch adds explicitly flagged fictional records. Disabling deletes only flagged records in one transaction. Real references block cleanup instead of changing or deleting real data.
+
+- Timezone-aware month/week/day calendars, drag/reschedule with database conflict guards, weekly recurrence, teacher availability and holidays.
+- Persisted attendance, roster eligibility, manual/student-ID entry, QR cards and camera scanning where the browser supports BarcodeDetector. Physical camera operation still needs a device check.
+- Exam authoring, locked publication, six question types, bounded grades, server automatic grading, rankings and student performance from stored results.
 
 This is a phased implementation, **not yet a complete enterprise ERP**. See [the delivery plan](docs/ROADMAP.md) for the remaining phases. Do not enter real student or financial data until the remaining security and recovery work is complete.
 
@@ -58,3 +62,9 @@ Recovery, email verification, Google sign-in, MFA, backup automation and product
 ## Media
 
 Photographs: Unsplash contributors, downloaded and served locally. IBM Plex Sans Arabic: Google Fonts, SIL Open Font License. Dependencies retain their upstream licenses.
+
+### Operational limits
+
+Up to 500 attendance records save atomically in a single D1 batch. Cloudflare counts a batch as one invocation query, while each SQL statement keeps its own parameter limits. Guardian absence notices currently remain in-app, with no external delivery claim. Weekly recurrence is capped at ten sessions per atomic request. Demo academic and learning datasets are seeded in separate idempotent requests; cleanup remains atomic and refuses real-data references.
+
+Calendar interaction uses FullCalendar's MIT-licensed packaged styles. All application-specific layout and styling uses Tailwind utilities, without authored CSS rules.
