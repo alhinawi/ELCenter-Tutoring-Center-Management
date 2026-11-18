@@ -1,3 +1,4 @@
+import { registerGroupRoster } from "./group-roster";
 import {
   dashboardPreferences,
   registerDashboardPreferences,
@@ -934,6 +935,7 @@ app.get("/api/audit", async (c) => {
   return c.json({ data: data.results });
 });
 registerStudentCard(app);
+registerGroupRoster(app);
 registerAcademic(app);
 registerScheduling(app);
 registerAssessment(app);

@@ -1,4 +1,5 @@
 "use client";
+import { GroupRoster } from "./group-roster";
 import { StudentProfilePrint } from "./student-profile-print";
 import { StudentCard } from "./student-card";
 import { ProfilePhoto } from "./profile-photo";
@@ -971,6 +972,16 @@ export default function Academic({
                   )}
                 </section>
               )}
+              {entity === "groups" &&
+                (allowed("groups", "print") || allowed("groups", "export")) && (
+                  <GroupRoster
+                    key={details.id}
+                    id={details.id}
+                    api={api}
+                    ar={ar}
+                    allowed={allowed}
+                  />
+                )}
               {detailData.enrollments && (
                 <section>
                   <h3 className="mb-3 font-semibold">
