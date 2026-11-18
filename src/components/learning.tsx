@@ -1,4 +1,5 @@
 "use client";
+import { ExamResultSheet } from "./exam-result-sheet";
 import { useModalFocus } from "./modal-focus";
 import {
   AttendanceCorrectionForm,
@@ -1233,6 +1234,16 @@ export function Assessments({
               </Button>
             </form>
           )}
+          {detail.data.status !== "draft" &&
+            (allowed("exams", "print") || allowed("exams", "export")) && (
+              <ExamResultSheet
+                key={detail.data.id}
+                id={detail.data.id}
+                api={api}
+                ar={ar}
+                allowed={allowed}
+              />
+            )}
           <h3 className="mb-4 mt-7 font-semibold">
             {L("Results & rankings", "النتايج والترتيب")}
           </h3>
