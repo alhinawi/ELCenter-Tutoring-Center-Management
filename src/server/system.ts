@@ -29,6 +29,7 @@ export async function runAutomation(
     period: string;
     title: string;
     body: string;
+    recheck?: { sql: string; args: unknown[] };
   }[] = [];
   const docs = (
     await db
@@ -96,6 +97,108 @@ export async function runAutomation(
       period: day.slice(0, 7),
       title: "Library return / إرجاع كتاب",
       body: r.title + " · " + r.due_on,
+    });
+  const rules = await db
+    .prepare(
+      "SELECT lead_followups,contract_expiry,low_stock,contract_days FROM el_automation_settings WHERE org_id=?",
+    )
+    .bind(org)
+    .first<{
+      lead_followups: number;
+      contract_expiry: number;
+      low_stock: number;
+      contract_days: number;
+    }>();
+  // Staff reminders require current backoffice role and resource permission.
+  // Dedupe precedes LIMIT so previously handled recipients do not starve later ones.
+  const staffAccess = (resource: string, branch: string) => `
+    m.status='active' AND COALESCE(r.system_key,'') NOT IN ('student','parent_guardian','teacher')
+    AND (m.branch_id IS NULL OR m.branch_id=${branch})
+    AND EXISTS(SELECT 1 FROM el_role_permissions rp WHERE rp.role_id=m.role_id AND rp.resource='${resource}' AND rp.action='view')
+    AND NOT EXISTS(SELECT 1 FROM el_notification_preferences np WHERE np.org_id=m.org_id AND np.user_id=m.user_id AND np.in_app=0)`;
+  const leads = rules?.lead_followups
+    ? (
+        await db
+          .prepare(
+            `SELECT l.id,l.name,l.follow_up_on,m.user_id FROM el_leads l JOIN el_memberships m ON m.org_id=l.org_id AND m.user_id=l.assigned_to JOIN el_roles r ON r.id=m.role_id WHERE l.org_id=? AND l.is_demo=0 AND l.follow_up_on<>'' AND l.follow_up_on<=? AND l.stage NOT IN ('registered','lost') AND ${staffAccess("crm", "l.branch_id")} AND NOT EXISTS(SELECT 1 FROM el_automation_events ev WHERE ev.org_id=l.org_id AND ev.user_id=m.user_id AND ev.kind='lead_followup' AND ev.entity_id=l.id AND ev.period=l.follow_up_on) ORDER BY l.follow_up_on,l.id,m.user_id LIMIT 100`,
+          )
+          .bind(org, day)
+          .all<Record<string, any>>()
+      ).results
+    : [];
+  for (const l of leads)
+    candidates.push({
+      user: l.user_id,
+      kind: "lead_followup",
+      entity: l.id,
+      period: l.follow_up_on,
+      title: "Lead follow-up / متابعة عميل",
+      body: l.name + " · " + l.follow_up_on,
+      recheck: {
+        sql: `EXISTS(SELECT 1 FROM el_leads l JOIN el_memberships m ON m.org_id=l.org_id AND m.user_id=l.assigned_to JOIN el_roles r ON r.id=m.role_id JOIN el_automation_settings ats ON ats.org_id=l.org_id WHERE l.org_id=? AND l.id=? AND m.user_id=? AND l.follow_up_on=? AND l.follow_up_on<=? AND l.stage NOT IN ('registered','lost') AND l.is_demo=0 AND ats.lead_followups=1 AND ${staffAccess("crm", "l.branch_id")})`,
+        args: [org, l.id, l.user_id, l.follow_up_on, day],
+      },
+    });
+  const contracts = rules?.contract_expiry
+    ? (
+        await db
+          .prepare(
+            `SELECT co.id,co.ends_on,e.name,m.user_id FROM el_contracts co JOIN el_employees e ON e.id=co.employee_id AND e.org_id=co.org_id JOIN el_memberships m ON m.org_id=co.org_id JOIN el_roles r ON r.id=m.role_id WHERE co.org_id=? AND co.is_demo=0 AND e.is_demo=0 AND e.status IN ('active','onboarding','on_leave') AND co.ends_on>=? AND co.ends_on<=? AND ${staffAccess("hr", "co.branch_id")} AND (m.branch_id IS NULL OR m.branch_id=e.branch_id) AND NOT EXISTS(SELECT 1 FROM el_automation_events ev WHERE ev.org_id=co.org_id AND ev.user_id=m.user_id AND ev.kind='contract_expiry' AND ev.entity_id=co.id AND ev.period=co.ends_on) ORDER BY co.ends_on,co.id,m.user_id LIMIT 100`,
+          )
+          .bind(org, day, today.add({ days: rules.contract_days }).toString())
+          .all<Record<string, any>>()
+      ).results
+    : [];
+  for (const co of contracts)
+    candidates.push({
+      user: co.user_id,
+      kind: "contract_expiry",
+      entity: co.id,
+      period: co.ends_on,
+      title: "Contract expiration / انتهاء عقد",
+      body: co.name + " · " + co.ends_on,
+      recheck: {
+        sql: `EXISTS(SELECT 1 FROM el_contracts co JOIN el_employees e ON e.id=co.employee_id AND e.org_id=co.org_id JOIN el_memberships m ON m.org_id=co.org_id JOIN el_roles r ON r.id=m.role_id JOIN el_automation_settings ats ON ats.org_id=co.org_id WHERE co.org_id=? AND co.id=? AND m.user_id=? AND co.ends_on=? AND co.ends_on>=? AND co.ends_on<=? AND co.is_demo=0 AND e.is_demo=0 AND e.status IN ('active','onboarding','on_leave') AND ats.contract_expiry=1 AND ats.contract_days=? AND ${staffAccess("hr", "co.branch_id")} AND (m.branch_id IS NULL OR m.branch_id=e.branch_id))`,
+        args: [
+          org,
+          co.id,
+          co.user_id,
+          co.ends_on,
+          day,
+          today.add({ days: rules!.contract_days }).toString(),
+          rules!.contract_days,
+        ],
+      },
+    });
+  const stock = rules?.low_stock
+    ? (
+        await db
+          .prepare(
+            `SELECT i.id,i.name,b.branch_id,b.quantity,i.reorder_level,m.user_id FROM el_stock_balances b JOIN el_inventory_items i ON i.id=b.item_id AND i.org_id=b.org_id JOIN el_memberships m ON m.org_id=b.org_id JOIN el_roles r ON r.id=m.role_id WHERE b.org_id=? AND i.is_demo=0 AND i.status='active' AND b.quantity<=i.reorder_level AND ${staffAccess("inventory", "b.branch_id")} AND NOT EXISTS(SELECT 1 FROM el_automation_events ev WHERE ev.org_id=b.org_id AND ev.user_id=m.user_id AND ev.kind='low_stock' AND ev.entity_id=b.branch_id||':'||i.id AND ev.period=?) ORDER BY b.branch_id,i.id,m.user_id LIMIT 100`,
+          )
+          .bind(org, day.slice(0, 7))
+          .all<Record<string, any>>()
+      ).results
+    : [];
+  for (const st of stock)
+    candidates.push({
+      user: st.user_id,
+      kind: "low_stock",
+      entity: st.branch_id + ":" + st.id,
+      period: day.slice(0, 7),
+      title: "Low stock / مخزون منخفض",
+      body: st.name + " · " + st.quantity + " / " + st.reorder_level,
+      recheck: {
+        sql: `EXISTS(SELECT 1 FROM el_stock_balances b JOIN el_inventory_items i ON i.org_id=b.org_id AND i.id=b.item_id JOIN el_memberships m ON m.org_id=b.org_id JOIN el_roles r ON r.id=m.role_id JOIN el_automation_settings ats ON ats.org_id=b.org_id WHERE b.org_id=? AND b.branch_id=? AND i.id=? AND m.user_id=? AND b.quantity=? AND i.reorder_level=? AND b.quantity<=i.reorder_level AND i.is_demo=0 AND i.status='active' AND ats.low_stock=1 AND ${staffAccess("inventory", "b.branch_id")})`,
+        args: [
+          org,
+          st.branch_id,
+          st.id,
+          st.user_id,
+          st.quantity,
+          st.reorder_level,
+        ],
+      },
     });
   const schedules = (
     await db
@@ -218,7 +321,7 @@ export async function runAutomation(
       statements.push(
         db
           .prepare(
-            "INSERT INTO el_notifications(id,org_id,user_id,title,body) SELECT ?,?,?,?,? WHERE NOT EXISTS(SELECT 1 FROM el_automation_events WHERE org_id=? AND user_id=? AND kind=? AND entity_id=? AND period=?)",
+            `INSERT INTO el_notifications(id,org_id,user_id,title,body) SELECT ?,?,?,?,? WHERE NOT EXISTS(SELECT 1 FROM el_automation_events WHERE org_id=? AND user_id=? AND kind=? AND entity_id=? AND period=?) AND ${c.recheck?.sql ?? "1=1"}`,
           )
           .bind(
             id,
@@ -231,6 +334,7 @@ export async function runAutomation(
             c.kind,
             c.entity,
             c.period,
+            ...(c.recheck?.args ?? []),
           ),
         db
           .prepare(
@@ -356,7 +460,7 @@ export function registerSystem(app: Hono<any>) {
           .all()
       ).results,
       scope:
-        "In-app notifications only; up to 100 records per kind per run. No external delivery.",
+        "In-app notifications only; up to 100 recipient records per kind per run. No external delivery.",
       enabled: !!(
         await c.env.DB.prepare(
           "SELECT enabled FROM el_automation_settings WHERE org_id=?",
@@ -364,6 +468,16 @@ export function registerSystem(app: Hono<any>) {
           .bind(a.org_id)
           .first<{ enabled: number }>()
       )?.enabled,
+      rules: (await c.env.DB.prepare(
+        "SELECT lead_followups,contract_expiry,low_stock,contract_days FROM el_automation_settings WHERE org_id=?",
+      )
+        .bind(a.org_id)
+        .first()) ?? {
+        lead_followups: 0,
+        contract_expiry: 0,
+        low_stock: 0,
+        contract_days: 30,
+      },
       scheduler_status: "Check deployment status with your operator",
     });
   });
@@ -371,11 +485,32 @@ export function registerSystem(app: Hono<any>) {
     permit(c, "organization", "manage");
     const a = c.get("actor");
     assert(!a.branch_id, 403, "Headquarters only");
-    const d = z.object({ enabled: z.boolean() }).parse(await c.req.json());
+    const d = z
+      .object({
+        enabled: z.boolean(),
+        lead_followups: z.boolean().optional(),
+        contract_expiry: z.boolean().optional(),
+        low_stock: z.boolean().optional(),
+        contract_days: z.number().int().min(1).max(90).optional(),
+      })
+      .parse(await c.req.json());
+    const flag = (b: boolean | undefined) =>
+      b === undefined ? null : b ? 1 : 0;
     await c.env.DB.batch([
       c.env.DB.prepare(
-        "INSERT INTO el_automation_settings(org_id,enabled) VALUES(?,?) ON CONFLICT(org_id) DO UPDATE SET enabled=excluded.enabled",
-      ).bind(a.org_id, d.enabled ? 1 : 0),
+        "INSERT INTO el_automation_settings(org_id,enabled,lead_followups,contract_expiry,low_stock,contract_days) VALUES(?,?,COALESCE(?,0),COALESCE(?,0),COALESCE(?,0),COALESCE(?,30)) ON CONFLICT(org_id) DO UPDATE SET enabled=excluded.enabled,lead_followups=COALESCE(?,lead_followups),contract_expiry=COALESCE(?,contract_expiry),low_stock=COALESCE(?,low_stock),contract_days=COALESCE(?,contract_days)",
+      ).bind(
+        a.org_id,
+        d.enabled ? 1 : 0,
+        flag(d.lead_followups),
+        flag(d.contract_expiry),
+        flag(d.low_stock),
+        d.contract_days ?? null,
+        flag(d.lead_followups),
+        flag(d.contract_expiry),
+        flag(d.low_stock),
+        d.contract_days ?? null,
+      ),
       audit(c, "automation", a.org_id, "settings", null, d),
     ]);
     return c.json({ ok: true });
