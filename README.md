@@ -83,3 +83,9 @@ Photographs: Unsplash contributors, downloaded and served locally. IBM Plex Sans
 Up to 500 attendance records save atomically in a single D1 batch. Cloudflare counts a batch as one invocation query, while each SQL statement keeps its own parameter limits. Guardian absence notices currently remain in-app, with no external delivery claim. Weekly recurrence is capped at ten sessions per atomic request. Demo academic and learning datasets are seeded in separate idempotent requests; cleanup remains atomic and refuses real-data references.
 
 Calendar interaction uses FullCalendar's MIT-licensed packaged styles. All application-specific layout and styling uses Tailwind utilities, without authored CSS rules.
+
+### Resource storage and migration sequence
+
+After phase 6 migration 0008, phase 7 applies 0009_resources_service.sql, 0010_inventory.sql and 0011_library.sql in order using the existing el_migrations history. Only el_ objects are affected. Configure DOCUMENT_ENCRYPTION_KEY as a protected production secret before allowing document uploads. Keep it stable and back it up outside the repository. Losing or rotating it without re-encryption makes prior uploads unreadable. Do not put its value in source, logs or chat.
+
+The document store accepts 1–128 KiB PDF/PNG/JPEG versions, at most 20 per document and 1000 documents per organization. All versions are retained, encrypted and downloaded as attachments with no-store headers. File signatures do not prove malware safety. Free database capacity and daily operations are shared limits, so these are application caps, not reserved storage. Resource demo records carry explicit flags; real references block atomic cleanup.

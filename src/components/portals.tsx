@@ -1,4 +1,5 @@
 "use client";
+import { Support, Documents } from "./resources";
 import { Temporal } from "@js-temporal/polyfill";
 import { useEffect, useState, type ReactNode } from "react";
 import {
@@ -29,6 +30,24 @@ type Props = {
   allowed: (r: string, a?: string) => boolean;
 };
 const statusNames: Record<string, [string, string]> = {
+  open: ["Open", "مفتوح"],
+  in_progress: ["In progress", "جاري العمل"],
+  waiting: ["Waiting", "في الانتظار"],
+  resolved: ["Resolved", "تم الحل"],
+  ordered: ["Ordered", "مطلوب"],
+  received: ["Received", "تم الاستلام"],
+  available: ["Available", "متاح"],
+  loaned: ["Loaned", "مستعار"],
+  fulfilled: ["Fulfilled", "تم التنفيذ"],
+  cancelled: ["Cancelled", "ملغي"],
+  dispatched: ["Dispatched", "تم التسليم"],
+  returned: ["Returned", "تم الإرجاع"],
+  assigned: ["Assigned", "مخصص"],
+  maintenance: ["Maintenance", "صيانة"],
+  retired: ["Retired", "خارج الخدمة"],
+  active: ["Active", "نشط"],
+  inactive: ["Inactive", "غير نشط"],
+
   published: ["Published", "منشور"],
   draft: ["Draft", "مسودة"],
   closed: ["Closed", "مغلق"],
@@ -53,11 +72,17 @@ const statusNames: Record<string, [string, string]> = {
   article: ["Article", "شرح مكتوب"],
   video: ["Video", "فيديو"],
   live: ["Live class", "حصة مباشرة"],
+  low: ["Low", "منخفضة"],
+  normal: ["Normal", "عادية"],
+  high: ["High", "مرتفعة"],
+  urgent: ["Urgent", "عاجلة"],
+  lost: ["Lost", "مفقود"],
+  archived: ["Archived", "مؤرشف"],
   material: ["Material", "مادة تعليمية"],
   visible: ["Visible", "ظاهر"],
   hidden: ["Hidden", "مخفي"],
 };
-function Badge({ value, ar }: { value: string; ar: boolean }) {
+export function Badge({ value, ar }: { value: string; ar: boolean }) {
   return (
     <span className="inline-block rounded-full bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700 dark:bg-blue-950 dark:text-blue-200">
       {statusNames[value]?.[ar ? 1 : 0] ?? value}
@@ -67,7 +92,13 @@ function Badge({ value, ar }: { value: string; ar: boolean }) {
 function Empty({ children }: { children: ReactNode }) {
   return <p className="p-6 text-sm leading-7 text-slate-500">{children}</p>;
 }
-function Table({ heads, rows }: { heads: string[]; rows: ReactNode[][] }) {
+export function Table({
+  heads,
+  rows,
+}: {
+  heads: string[];
+  rows: ReactNode[][];
+}) {
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-start text-sm">
@@ -101,7 +132,7 @@ function Table({ heads, rows }: { heads: string[]; rows: ReactNode[][] }) {
     </div>
   );
 }
-function Panel({
+export function Panel({
   title,
   children,
   action,
@@ -140,7 +171,8 @@ export function Portal({
     [error, setError] = useState(""),
     [mode, setMode] = useState("overview"),
     [notices, setNotices] = useState<Row[]>([]),
-    [invoice, setInvoice] = useState<Row | null>(null);
+    [invoice, setInvoice] = useState<Row | null>(null),
+    [library, setLibrary] = useState<Row[]>([]);
   const teacher = user.system_key === "teacher";
   const date = (n: number) =>
     new Date(n * 1000).toLocaleString(ar ? "ar-EG-u-nu-latn" : "en-GB", {
@@ -182,10 +214,19 @@ export function Portal({
       setError(String(e));
     }
   }
+  useEffect(() => {
+    if (mode === "library" && child && !teacher)
+      p.api("/portal/library/" + child)
+        .then((r) => setLibrary(r.data))
+        .catch((e) => setError(String(e)));
+  }, [mode, child]);
   const tabs = [
     ["overview", L("My day", "يومي")],
     ["learning", L("Learning space", "مساحة التعلم")],
     ["notices", L("Inbox", "الوارد")],
+    ["support", L("Support", "الدعم")],
+    ["documents", L("Documents", "المستندات")],
+    ...(!teacher ? [["library", L("Library history", "سجل المكتبة")]] : []),
   ];
   return (
     <div className="min-h-screen bg-[#f5f7fb] text-slate-900 dark:bg-slate-950 dark:text-slate-100">
@@ -260,7 +301,7 @@ export function Portal({
         {home && (
           <>
             <div className="flex flex-wrap items-center justify-between gap-4">
-              <nav className="flex gap-1 rounded-xl bg-white p-1 dark:bg-slate-900">
+              <nav className="flex max-w-full flex-wrap gap-1 rounded-xl bg-white p-1 dark:bg-slate-900">
                 {tabs.map(([key, label]) => (
                   <button
                     key={key}
@@ -296,7 +337,48 @@ export function Portal({
                 </label>
               )}
             </div>
-            {mode === "learning" ? (
+            {mode === "support" ? (
+              <Support
+                {...p}
+                portal
+                studentId={child}
+                branchId={home.profile.branch_id}
+              />
+            ) : mode === "documents" ? (
+              <Documents
+                {...p}
+                portal
+                targetKind={teacher ? "teacher" : "student"}
+                targetId={teacher ? home.profile.id : child}
+                branchId={
+                  teacher ? home.profile.branch_id : family?.student.branch_id
+                }
+              />
+            ) : mode === "library" ? (
+              <Panel
+                title={L(
+                  "Borrowing history, latest 100",
+                  "سجل الاستعارة، آخر 100",
+                )}
+              >
+                <Table
+                  heads={[
+                    L("Book", "الكتاب"),
+                    L("Borrowed", "الاستعارة"),
+                    L("Due", "الموعد"),
+                    L("Returned", "الإرجاع"),
+                    L("Recorded penalty", "الغرامة المسجلة"),
+                  ]}
+                  rows={library.map((r) => [
+                    r.title,
+                    r.borrowed_on,
+                    r.due_on,
+                    r.returned_on ?? L("On loan", "قيد الاستعارة"),
+                    money(r.penalty_total),
+                  ])}
+                />
+              </Panel>
+            ) : mode === "learning" ? (
               <LearningSpace {...p} studentId={child} />
             ) : mode === "notices" ? (
               <Panel title={L("Private inbox", "الوارد الخاص")}>
@@ -812,7 +894,7 @@ export function Portal({
   );
 }
 type Def = [string, string, string?, string[]?];
-function Dialog({
+export function Dialog({
   title,
   close,
   children,
@@ -844,7 +926,7 @@ function Dialog({
     </div>
   );
 }
-function ActionForm({
+export function ActionForm({
   title,
   fields,
   submit,
@@ -1425,6 +1507,14 @@ export function LearningSpace(p: Props & { studentId?: string }) {
               </Empty>
             )}
           </Panel>
+          <Documents
+            {...p}
+            portal={true}
+            targetKind="group"
+            targetId={detail.group.id}
+            branchId={detail.group.branch_id}
+            canUpload={detail.can_teach}
+          />
           <Panel title={L("Class conversation", "مناقشة المجموعة")}>
             <div className="space-y-4 p-5">
               {detail.discussions.map((r: Row) => (

@@ -235,6 +235,25 @@ export function registerAcademic(app: Hono<any>) {
       return c.json({ enabled: true });
     }
     const tables = [
+      "document_versions",
+      "documents",
+      "ticket_messages",
+      "support_tickets",
+      "library_reservations",
+      "borrow_records",
+      "library_copies",
+      "library_books",
+      "asset_transfers",
+      "asset_events",
+      "assets",
+      "stock_sale_lines",
+      "stock_sales",
+      "purchase_lines",
+      "purchase_orders",
+      "stock_transfers",
+      "stock_movements",
+      "suppliers",
+      "inventory_items",
       "lesson_progress",
       "submissions",
       "lessons",
@@ -303,6 +322,13 @@ export function registerAcademic(app: Hono<any>) {
         "SELECT name FROM sqlite_master WHERE type='table' AND name LIKE 'el_%'",
       ).all<{ name: string }>()
     ).results.map((x) => x.name);
+    const stockCleanup = existing.includes("el_stock_balances")
+      ? [
+          c.env.DB.prepare(
+            "DELETE FROM el_stock_balances WHERE org_id=? AND item_id IN (SELECT id FROM el_inventory_items WHERE org_id=? AND is_demo=1) AND NOT EXISTS(SELECT 1 FROM el_stock_movements m WHERE m.item_id=el_stock_balances.item_id AND m.org_id=? AND m.is_demo=0)",
+          ).bind(a.org_id, a.org_id, a.org_id),
+        ]
+      : [];
     const statements = tables
       .filter((table) => existing.includes("el_" + table))
       .map((table) =>
@@ -312,6 +338,7 @@ export function registerAcademic(app: Hono<any>) {
       );
     try {
       await c.env.DB.batch([
+        ...stockCleanup,
         ...statements,
         c.env.DB.prepare(
           "UPDATE el_organizations SET demo_enabled=0 WHERE id=?",
