@@ -1,11 +1,12 @@
 "use client";
+import { FamilyResultHistory } from "./family-result-history";
 import { OrganizationLogo } from "./organization-logo";
 import { ProfilePhoto } from "./profile-photo";
 import { useModalFocus } from "./modal-focus";
 import { InvoicePrintHeader, InvoicePrintFooter } from "./invoice-print";
 import { Support, Documents } from "./resources";
 import { Temporal } from "@js-temporal/polyfill";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import {
   BookOpen,
@@ -195,32 +196,43 @@ export function Portal({
     }).format(n) +
     " " +
     p.currency;
+  const familyRequest = useRef(0);
   async function load() {
+    const request = ++familyRequest.current;
+    setFamily(null);
     try {
       setError("");
       const h = await p.api(teacher ? "/portal/teacher" : "/portal");
+      if (request !== familyRequest.current) return;
       setHome(h);
       const ns = await p.api("/notifications");
+      if (request !== familyRequest.current) return;
       setNotices(ns.data);
       if (!teacher && h.children.length) {
-        const id = child || h.children[0].id;
+        const id = h.children.some((r: Row) => r.id === child)
+          ? child
+          : h.children[0].id;
         setChild(id);
-        setFamily(await p.api("/portal/students/" + id));
+        const result = await p.api("/portal/students/" + id);
+        if (request === familyRequest.current) setFamily(result);
       }
     } catch (e) {
-      setError(String(e));
+      if (request === familyRequest.current) setError(String(e));
     }
   }
   useEffect(() => {
     void load();
   }, []);
   async function choose(id: string) {
+    const request = ++familyRequest.current;
     setChild(id);
+    setError("");
     setFamily(null);
     try {
-      setFamily(await p.api("/portal/students/" + id));
+      const result = await p.api("/portal/students/" + id);
+      if (request === familyRequest.current) setFamily(result);
     } catch (e) {
-      setError(String(e));
+      if (request === familyRequest.current) setError(String(e));
     }
   }
   useEffect(() => {
@@ -620,19 +632,11 @@ export function Portal({
 
                 <div className="grid gap-4 sm:grid-cols-3">
                   {[
-                    [L("Enrolled groups", "المجموعات"), family.groups.length],
-                    [L("Published results", "النتائج"), family.results.length],
+                    [L("Enrolled groups", "المجموعات"), family.summary.groups],
+                    [L("Published results", "النتائج"), family.summary.results],
                     [
                       L("Outstanding balance", "المبلغ المتبقي"),
-                      money(
-                        family.invoices
-                          .filter((i: Row) => i.status !== "void")
-                          .reduce(
-                            (s: number, i: Row) =>
-                              s + Math.max(0, i.total - i.paid),
-                            0,
-                          ),
-                      ),
+                      money(family.summary.outstanding),
                     ],
                   ].map(([label, n]) => (
                     <Card className="p-5" key={label}>
@@ -641,6 +645,12 @@ export function Portal({
                     </Card>
                   ))}
                 </div>
+                <p className="text-xs leading-6 text-slate-500">
+                  {L(
+                    "Overview totals include all eligible records. Other lists are bounded previews: first100 active/completed enrollments by group name, first100 sessions from yesterday through120 days ahead, latest200 attendance records, latest100 non-draft invoices and your latest50 center requests. Results below have separate complete page navigation. Lists and totals are live reads, not an archived statement.",
+                    "إجماليات الملخص بتشمل كل السجلات المناسبة. القوائم التانية معاينات محدودة: أول100 تسجيل نشط أو مكتمل بترتيب المجموعة، أول100 حصة من إمبارح ولحد120 يوم قدام، آخر200 سجل حضور، آخر100 فاتورة مش مسودة، وآخر50 طلب للمركز ليك. النتايج تحت ليها صفحات مستقلة للسجل كله. القوائم والإجماليات قراءة مباشرة مش كشف مؤرشف.",
+                  )}
+                </p>
                 <div className="grid gap-6 lg:grid-cols-2">
                   <Panel title={L("Upcoming sessions", "الحصص الجاية")}>
                     {family.sessions.length ? (
@@ -675,33 +685,14 @@ export function Portal({
                     )}
                   </Panel>
                   <Panel title={L("Academic results", "النتائج الدراسية")}>
-                    {family.results.length ? (
-                      <Table
-                        heads={[
-                          L("Exam", "الامتحان"),
-                          L("Score", "الدرجة"),
-                          L("Feedback", "الملاحظات"),
-                        ]}
-                        rows={family.results.map((r: Row) => [
-                          r.name,
-                          <bdi>{r.score + " / " + r.max_score}</bdi>,
-                          r.feedback || "—",
-                        ])}
-                      />
-                    ) : (
-                      <Empty>
-                        {L(
-                          "Final results will appear here.",
-                          "النتائج النهائية هتظهر هنا.",
-                        )}
-                      </Empty>
-                    )}
-                    <div className="border-t border-slate-100 px-5 py-4 text-xs leading-6 text-slate-500 dark:border-slate-800">
-                      {L(
-                        "Only finalized, published results are visible.",
-                        "بتظهر النتائج النهائية للامتحانات المنشورة فقط.",
-                      )}
-                    </div>
+                    <FamilyResultHistory
+                      key={family.student.id}
+                      id={family.student.id}
+                      name={family.student.name}
+                      api={p.api}
+                      ar={ar}
+                      timezone={p.timezone}
+                    />
                   </Panel>
                 </div>
                 <Panel title={L("Attendance history", "سجل الحضور")}>

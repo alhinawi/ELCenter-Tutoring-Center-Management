@@ -1,3 +1,4 @@
+import { familyResults } from "./family-results";
 import { invoicePrintSnapshot } from "./invoice-print";
 import type { Hono } from "hono";
 import { z } from "zod";
@@ -172,54 +173,65 @@ export function registerPortals(app: Hono<any>) {
       ).results;
     return c.json({ kind: link.kind, profile: link.profile, children });
   });
+  app.get("/api/portal/students/:id/results", familyResults);
   app.get("/api/portal/students/:id", async (c: AppContext) => {
     const student = await ownedStudent(c, c.req.param("id")!),
       a = c.get("actor"),
       id = student.id;
     const groups = (
       await c.env.DB.prepare(
-        "SELECT g.id,g.name,g.code,g.status,g.teacher_id,g.course_id,t.name teacher_name,co.name course_name,en.status enrollment_status FROM el_enrollments en JOIN el_groups g ON g.id=en.group_id JOIN el_teachers t ON t.id=g.teacher_id JOIN el_courses co ON co.id=g.course_id WHERE en.org_id=? AND en.student_id=? AND en.status IN ('active','completed') ORDER BY g.name LIMIT 100",
+        "SELECT g.id,g.name,g.code,g.status,g.teacher_id,g.course_id,t.name teacher_name,co.name course_name,en.status enrollment_status FROM el_enrollments en JOIN el_groups g ON g.id=en.group_id JOIN el_teachers t ON t.id=g.teacher_id JOIN el_courses co ON co.id=g.course_id WHERE en.org_id=? AND en.student_id=? AND en.status IN ('active','completed') ORDER BY g.name,g.id LIMIT 100",
       )
         .bind(a.org_id, id)
         .all()
     ).results;
     const sessions = (
       await c.env.DB.prepare(
-        "SELECT s.id,s.starts_at,s.ends_at,s.topic,s.status,g.name group_name,t.name teacher_name,cl.name classroom_name FROM el_class_sessions s JOIN el_groups g ON g.id=s.group_id JOIN el_teachers t ON t.id=s.teacher_id JOIN el_classrooms cl ON cl.id=s.classroom_id WHERE s.org_id=? AND s.starts_at>=? AND s.starts_at<=? AND EXISTS(SELECT 1 FROM el_enrollments en WHERE en.student_id=? AND en.group_id=s.group_id AND en.org_id=s.org_id AND en.status='active') ORDER BY s.starts_at LIMIT 100",
+        "SELECT s.id,s.starts_at,s.ends_at,s.topic,s.status,g.name group_name,t.name teacher_name,cl.name classroom_name FROM el_class_sessions s JOIN el_groups g ON g.id=s.group_id JOIN el_teachers t ON t.id=s.teacher_id JOIN el_classrooms cl ON cl.id=s.classroom_id WHERE s.org_id=? AND s.starts_at>=? AND s.starts_at<=? AND EXISTS(SELECT 1 FROM el_enrollments en WHERE en.student_id=? AND en.group_id=s.group_id AND en.org_id=s.org_id AND en.status='active') ORDER BY s.starts_at,s.id LIMIT 100",
       )
         .bind(a.org_id, now() - 86400, now() + 120 * 86400, id)
         .all()
     ).results;
     const attendance = (
       await c.env.DB.prepare(
-        "SELECT a.id,a.status,a.arrival,a.departure,s.starts_at,s.topic,s.status session_status,g.name group_name FROM el_attendance a JOIN el_class_sessions s ON s.id=a.session_id JOIN el_groups g ON g.id=s.group_id WHERE a.org_id=? AND a.student_id=? ORDER BY s.starts_at DESC LIMIT 200",
+        "SELECT a.id,a.status,a.arrival,a.departure,s.starts_at,s.topic,s.status session_status,g.name group_name FROM el_attendance a JOIN el_class_sessions s ON s.id=a.session_id JOIN el_groups g ON g.id=s.group_id WHERE a.org_id=? AND a.student_id=? ORDER BY s.starts_at DESC,a.id DESC LIMIT 200",
       )
         .bind(a.org_id, id)
         .all()
     ).results;
     const results = (
       await c.env.DB.prepare(
-        "SELECT r.id,r.exam_id,r.score,r.feedback,e.max_score,e.pass_score,e.name,e.scheduled_at,g.name group_name FROM el_exam_results r JOIN el_exams e ON e.id=r.exam_id JOIN el_groups g ON g.id=e.group_id WHERE r.org_id=? AND r.student_id=? AND r.status='final' AND e.status<>'draft' ORDER BY e.scheduled_at DESC LIMIT 100",
+        "SELECT r.id,r.exam_id,r.score,r.feedback,e.max_score,e.pass_score,e.name,e.scheduled_at,g.name group_name FROM el_exam_results r JOIN el_exams e ON e.id=r.exam_id JOIN el_groups g ON g.id=e.group_id WHERE r.org_id=? AND r.student_id=? AND r.status='final' AND e.status<>'draft' ORDER BY e.scheduled_at DESC,r.id DESC LIMIT 100",
       )
         .bind(a.org_id, id)
         .all()
     ).results;
     const invoices = (
       await c.env.DB.prepare(
-        "SELECT i.id,i.number,i.date,i.due_date,i.total,i.currency,i.status,COALESCE((SELECT sum(CASE WHEN p.kind='receipt' THEN p.amount ELSE -p.amount END) FROM el_payments p WHERE p.invoice_id=i.id),0) paid FROM el_invoices i WHERE i.org_id=? AND i.student_id=? AND i.status<>'draft' ORDER BY i.date DESC LIMIT 100",
+        "SELECT i.id,i.number,i.date,i.due_date,i.total,i.currency,i.status,COALESCE((SELECT sum(CASE WHEN p.kind='receipt' THEN p.amount ELSE -p.amount END) FROM el_payments p WHERE p.invoice_id=i.id),0) paid FROM el_invoices i WHERE i.org_id=? AND i.student_id=? AND i.status<>'draft' ORDER BY i.date DESC,i.id DESC LIMIT 100",
       )
         .bind(a.org_id, id)
         .all()
     ).results;
     const requests = (
       await c.env.DB.prepare(
-        "SELECT id,kind,subject,body,requested_on,status,response,created_at FROM el_portal_requests WHERE org_id=? AND student_id=? AND user_id=? ORDER BY created_at DESC LIMIT 50",
+        "SELECT id,kind,subject,body,requested_on,status,response,created_at FROM el_portal_requests WHERE org_id=? AND student_id=? AND user_id=? ORDER BY created_at DESC,id DESC LIMIT 50",
       )
         .bind(a.org_id, id, a.user_id)
         .all()
     ).results;
+    const summary = await c.env.DB.prepare(
+      `SELECT
+      (SELECT count(*) FROM el_enrollments en JOIN el_groups g ON g.id=en.group_id AND g.org_id=en.org_id WHERE en.org_id=? AND en.student_id=? AND en.status IN ('active','completed')) groups,
+      (SELECT count(*) FROM el_exam_results r JOIN el_exams e ON e.id=r.exam_id AND e.org_id=r.org_id WHERE r.org_id=? AND r.student_id=? AND r.status='final' AND e.status<>'draft') results,
+      (SELECT COALESCE(sum(max(0,i.total-COALESCE((SELECT sum(CASE WHEN p.kind='receipt' THEN p.amount ELSE -p.amount END) FROM el_payments p WHERE p.org_id=i.org_id AND p.invoice_id=i.id),0))),0) FROM el_invoices i WHERE i.org_id=? AND i.student_id=? AND i.status='issued') outstanding
+    `,
+    )
+      .bind(a.org_id, id, a.org_id, id, a.org_id, id)
+      .first();
     return c.json({
       student,
+      summary,
       groups,
       sessions,
       attendance,
