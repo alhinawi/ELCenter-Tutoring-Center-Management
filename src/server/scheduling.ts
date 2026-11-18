@@ -124,7 +124,67 @@ async function validateWindow(
       "Outside teacher availability",
     );
 }
+// Teacher visibility for timetable filtering follows a current assignment or
+// a recorded session in the viewer's branch, not only the primary branch.
+const teacherScope = `( ? IS NULL OR t.branch_id=? OR EXISTS (SELECT 1 FROM el_teacher_branches tb WHERE tb.teacher_id=t.id AND tb.org_id=t.org_id AND tb.branch_id=?) OR EXISTS (SELECT 1 FROM el_class_sessions cs WHERE cs.teacher_id=t.id AND cs.org_id=t.org_id AND cs.branch_id=?))`;
 export function registerScheduling(app: Hono<any>) {
+  app.get("/api/scheduling/filter-options", async (c: AppContext) => {
+    permit(c, "sessions");
+    const a = c.get("actor"),
+      branch = a.branch_id;
+    const [teachers, classrooms, groups] = await Promise.all([
+      c.env.DB.prepare(
+        `SELECT t.id,t.name FROM el_teachers t WHERE t.org_id=? AND ${teacherScope} AND (? OR EXISTS (SELECT 1 FROM el_class_sessions cs WHERE cs.org_id=t.org_id AND cs.teacher_id=t.id AND (? IS NULL OR cs.branch_id=?))) ORDER BY t.name,t.id LIMIT 1001`,
+      )
+        .bind(
+          a.org_id,
+          branch,
+          branch,
+          branch,
+          branch,
+          a.permissions.includes("teachers:view") ? 1 : 0,
+          branch,
+          branch,
+        )
+        .all(),
+      c.env.DB.prepare(
+        "SELECT r.id,r.name FROM el_classrooms r WHERE r.org_id=? AND (? IS NULL OR r.branch_id=?) AND (? OR EXISTS (SELECT 1 FROM el_class_sessions cs WHERE cs.org_id=r.org_id AND cs.classroom_id=r.id AND (? IS NULL OR cs.branch_id=?))) ORDER BY r.name,r.id LIMIT 1001",
+      )
+        .bind(
+          a.org_id,
+          branch,
+          branch,
+          a.permissions.includes("classrooms:view") ? 1 : 0,
+          branch,
+          branch,
+        )
+        .all(),
+      c.env.DB.prepare(
+        "SELECT g.id,g.name FROM el_groups g WHERE g.org_id=? AND (? IS NULL OR g.branch_id=?) AND (? OR EXISTS (SELECT 1 FROM el_class_sessions cs WHERE cs.org_id=g.org_id AND cs.group_id=g.id AND (? IS NULL OR cs.branch_id=?))) ORDER BY g.name,g.id LIMIT 1001",
+      )
+        .bind(
+          a.org_id,
+          branch,
+          branch,
+          a.permissions.includes("groups:view") ? 1 : 0,
+          branch,
+          branch,
+        )
+        .all(),
+    ]);
+    assert(
+      teachers.results.length <= 1000 &&
+        classrooms.results.length <= 1000 &&
+        groups.results.length <= 1000,
+      409,
+      "Timetable filters exceed 1000 teachers, classrooms or groups. Calendar remains available; use a narrower branch account or an explicit API filter.",
+    );
+    return c.json({
+      teachers: teachers.results,
+      classrooms: classrooms.results,
+      groups: groups.results,
+    });
+  });
   app.get("/api/sessions", async (c: AppContext) => {
     permit(c, "sessions");
     const a = c.get("actor"),
@@ -168,10 +228,48 @@ export function registerScheduling(app: Hono<any>) {
         "Group and branch filters differ",
       );
     }
+    const teacher =
+        z
+          .union([z.uuid(), z.literal("")])
+          .optional()
+          .parse(c.req.query("teacher")) || null,
+      classroom =
+        z
+          .union([z.uuid(), z.literal("")])
+          .optional()
+          .parse(c.req.query("classroom")) || null;
+    if (teacher) {
+      const found = await c.env.DB.prepare(
+        `SELECT t.id FROM el_teachers t WHERE t.org_id=? AND t.id=? AND ${teacherScope}`,
+      )
+        .bind(a.org_id, teacher, branch, branch, branch, branch)
+        .first();
+      assert(found, 404, "Teacher not found in timetable scope");
+    }
+    if (classroom) {
+      const room = await record(c, "classrooms", classroom);
+      assert(
+        !branch || room.branch_id === branch,
+        400,
+        "Classroom and branch filters differ",
+      );
+    }
     const rows = await c.env.DB.prepare(
-      "SELECT s.*,g.name group_name,t.name teacher_name,r.name room_name FROM el_class_sessions s JOIN el_groups g ON g.id=s.group_id JOIN el_teachers t ON t.id=s.teacher_id JOIN el_classrooms r ON r.id=s.classroom_id WHERE s.org_id=? AND (? IS NULL OR s.branch_id=?) AND (? IS NULL OR s.group_id=?) AND s.starts_at<? AND s.ends_at>? ORDER BY s.starts_at,s.id LIMIT 1001",
+      "SELECT s.*,g.name group_name,t.name teacher_name,r.name room_name FROM el_class_sessions s JOIN el_groups g ON g.id=s.group_id JOIN el_teachers t ON t.id=s.teacher_id JOIN el_classrooms r ON r.id=s.classroom_id WHERE s.org_id=? AND (? IS NULL OR s.branch_id=?) AND (? IS NULL OR s.group_id=?) AND (? IS NULL OR s.teacher_id=?) AND (? IS NULL OR s.classroom_id=?) AND s.starts_at<? AND s.ends_at>? ORDER BY s.starts_at,s.id LIMIT 1001",
     )
-      .bind(a.org_id, branch, branch, group, group, to, from)
+      .bind(
+        a.org_id,
+        branch,
+        branch,
+        group,
+        group,
+        teacher,
+        teacher,
+        classroom,
+        classroom,
+        to,
+        from,
+      )
       .all();
     assert(
       rows.results.length <= 1000,

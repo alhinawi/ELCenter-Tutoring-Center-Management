@@ -113,11 +113,38 @@ export function Schedule({
     [busy, setBusy] = useState(false),
     [version, setVersion] = useState(0),
     [group, setGroup] = useState(""),
+    [teacherFilter, setTeacherFilter] = useState(""),
+    [roomFilter, setRoomFilter] = useState(""),
+    [filterOptions, setFilterOptions] = useState<Record<string, Row[]>>({}),
+    [filterError, setFilterError] = useState(""),
     [filters, setFilters] = useState(false),
     [view, setView] = useState("dayGridMonth");
   const calendar = useRef<CalendarRef>(null);
   const reload = () => setVersion((v) => v + 1);
   useEffect(() => {
+    let active = true;
+    api("/scheduling/filter-options")
+      .then((d) => {
+        if (active) {
+          setFilterOptions(d);
+          setFilterError("");
+        }
+      })
+      .catch((e) => {
+        if (active) {
+          setFilterError(e.message);
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, [version]);
+  useEffect(() => {
+    if (
+      !["groups", "teachers", "classrooms"].some((r) => allowed(r)) &&
+      !allowed("groups", "create")
+    )
+      return;
     api("/academic/options")
       .then(setOptions)
       .catch((e) => setError(e.message));
@@ -126,7 +153,9 @@ export function Schedule({
     let active = true;
     setData([]);
     setError("");
-    api(`/sessions?from=${range.from}&to=${range.to}&group=${group}`)
+    api(
+      `/sessions?from=${range.from}&to=${range.to}&group=${group}&teacher=${teacherFilter}&classroom=${roomFilter}`,
+    )
       .then((d) => {
         if (active) setData(d.data);
       })
@@ -136,7 +165,7 @@ export function Schedule({
     return () => {
       active = false;
     };
-  }, [range, group, version]);
+  }, [range, group, teacherFilter, roomFilter, version]);
   async function save(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setBusy(true);
@@ -211,8 +240,8 @@ export function Schedule({
     <>
       <p className="mb-4 text-xs leading-6 text-slate-500">
         {L(
-          "Calendar loads complete results up to 1000 sessions. If exceeded, choose a shorter date range or one group; no partial calendar is shown.",
-          "التقويم بيحمّل نتايج كاملة لحد 1000 حصة. لو العدد أكبر اختار فترة أقصر أو مجموعة واحدة؛ مش بنعرض تقويم ناقص.",
+          "Calendar loads complete results up to 1000 sessions. If exceeded, shorten the date range or filter by group, teacher or classroom; no partial calendar is shown.",
+          "التقويم بيحمّل نتايج كاملة لحد 1000 حصة. لو العدد أكبر اختار فترة أقصر أو فلتر المجموعة أو المدرّس أو القاعة؛ مش بنعرض تقويم ناقص.",
         )}
       </p>
       {allowed("attendance") && (
@@ -303,19 +332,65 @@ export function Schedule({
             <Filter size={17} />
           </button>
           {filters && (
-            <div className="w-full">
+            <div className="grid w-full gap-3 sm:grid-cols-3">
               <Select
                 aria-label={L("Group filter", "فلتر المجموعة")}
                 value={group}
                 onChange={(e) => setGroup(e.target.value)}
               >
                 <option value="">{L("All groups", "كل المجموعات")}</option>
-                {options.groups?.map((g) => (
+                {filterOptions.groups?.map((g) => (
                   <option key={g.id} value={g.id}>
                     {g.name}
                   </option>
                 ))}
               </Select>
+              <Select
+                aria-label={L("Teacher filter", "فلتر المدرّس")}
+                value={teacherFilter}
+                onChange={(e) => setTeacherFilter(e.target.value)}
+              >
+                <option value="">
+                  {L("All session teachers", "كل مدرّسي الحصص")}
+                </option>
+                {filterOptions.teachers?.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.name}
+                  </option>
+                ))}
+              </Select>
+              <Select
+                aria-label={L("Classroom filter", "فلتر القاعة")}
+                value={roomFilter}
+                onChange={(e) => setRoomFilter(e.target.value)}
+              >
+                <option value="">
+                  {L("All session classrooms", "كل قاعات الحصص")}
+                </option>
+                {filterOptions.classrooms?.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.name}
+                  </option>
+                ))}
+              </Select>
+              <p className="text-xs leading-6 text-slate-500 sm:col-span-3">
+                {L(
+                  "Filters combine and use each session's recorded teacher and classroom, including replacements. They do not change assignments.",
+                  "الفلاتر بتشتغل مع بعض وبتستخدم المدرّس والقاعة المسجّلين لكل حصة، بما فيهم البدلاء. مش بتغيّر التكليفات.",
+                )}
+              </p>
+              {filterError && (
+                <p
+                  role="status"
+                  className="text-xs text-amber-700 sm:col-span-3"
+                >
+                  {L(
+                    "Filter choices could not refresh. Prior choices may be stale; reload to retry.",
+                    "اختيارات الفلاتر ما اتحدّثتش. الاختيارات القديمة ممكن تكون اتغيّرت؛ اعمل إعادة تحميل للمحاولة تاني.",
+                  )}{" "}
+                  {filterError}
+                </p>
+              )}
             </div>
           )}
         </div>
