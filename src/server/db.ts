@@ -21,5 +21,5 @@ export function searchPattern(input: string) {
     value += char;
     bytes += size;
   }
-  return "%" + value + "%";
+  return value + "%";
 }

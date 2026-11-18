@@ -61,6 +61,26 @@ app.onError((e, c) => {
     );
   if (String(e).includes("FOREIGN KEY constraint"))
     return c.json({ error: "A related record is unavailable" }, 409);
+  if (
+    /7500|D1.*(?:quota|limit)|daily.*(?:reads|read limit|quota)|rows read.*(?:limit|exceed)/i.test(
+      String(e),
+    )
+  ) {
+    const ar =
+      c.req.header("x-el-locale") === "ar" ||
+      (!c.req.header("x-el-locale") &&
+        (c.req.header("accept-language") ?? "").toLowerCase().startsWith("ar"));
+    c.header("Retry-After", "300");
+    return c.json(
+      {
+        error: ar
+          ? "الخدمة مضغوطة مؤقتًا. جرّب تاني بعد شوية."
+          : "Service is temporarily busy. Please try again later.",
+        code: "SERVICE_BUSY",
+      },
+      503,
+    );
+  }
   if (String(e).includes("UNIQUE constraint"))
     return c.json({ error: "This record already exists" }, 409);
   console.error(

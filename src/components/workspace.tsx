@@ -143,6 +143,7 @@ export default function Workspace() {
       headers: {
         "Content-Type": "application/json",
         "x-csrf-token": me?.user.csrf ?? "",
+        "x-el-locale": lang,
       },
       ...(body ? { body: JSON.stringify(body) } : {}),
     });
