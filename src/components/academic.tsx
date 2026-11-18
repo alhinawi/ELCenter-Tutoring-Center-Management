@@ -268,6 +268,12 @@ export default function Academic({
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
     [showFilters, setShowFilters] = useState(false),
+    [exportNotice, setExportNotice] = useState<{
+      entity: string;
+      q: string;
+      branch: string;
+      count: string;
+    } | null>(null),
     [idCard, setIdCard] = useState<{
       src: string;
       name: string;
@@ -276,6 +282,7 @@ export default function Academic({
   const title = academicNames[entity][ar ? 1 : 0],
     fields = definitions[entity];
   const reload = () => setVersion((v) => v + 1);
+  useEffect(() => setExportNotice(null), [entity, q, branch]);
   useEffect(() => {
     setData(null);
     setEditing(null);
@@ -365,20 +372,30 @@ export default function Academic({
   async function exportExcel() {
     setBusy(true);
     setError("");
+    setExportNotice(null);
     try {
-      const r = await fetch(`/api/${entity}/export`);
-      if (!r.ok)
-        throw new Error(
-          L("Export permission required", "محتاج صلاحية التصدير"),
-        );
-      const text = await r.text();
-      const blob = new Blob([text], { type: "text/csv;charset=utf-8" });
+      const r = await fetch(
+        `/api/${entity}/export?` + new URLSearchParams({ q, branch }),
+        { headers: { "x-el-locale": ar ? "ar" : "en" } },
+      );
+      if (!r.ok) {
+        const failure = (await r.json()) as { error?: string };
+        throw new Error(failure.error ?? L("Export failed", "فشل التصدير"));
+      }
+      // Preserve the server's UTF-8 BOM instead of decoding and dropping it.
+      const blob = await r.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
       a.download = `${entity}.csv`;
       a.click();
       URL.revokeObjectURL(url);
+      setExportNotice({
+        entity,
+        q,
+        branch,
+        count: r.headers.get("X-ELC-Export-Rows") ?? "0",
+      });
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -510,6 +527,25 @@ export default function Academic({
           )}
         </div>
       </div>
+      {allowed(entity, "export") && (
+        <p className="mb-4 text-xs leading-6 text-slate-500">
+          {L(
+            "CSV includes all records matching the current search and branch, not just this page. Maximum 10000 records; larger exports are rejected, never truncated. National IDs are excluded.",
+            "ملف CSV فيه كل السجلات المطابقة للبحث والفرع الحالي، مش الصفحة بس. أقصى حد 10000 سجل؛ الأكبر بيترفض من غير تصدير جزئي. الأرقام القومية مش بتتصدّر.",
+          )}
+        </p>
+      )}
+      {exportNotice &&
+        exportNotice.entity === entity &&
+        exportNotice.q === q &&
+        exportNotice.branch === branch && (
+          <p role="status" className="mb-4 text-sm text-teal-700">
+            {L(
+              "Exported " + exportNotice.count + " matching records.",
+              "تم تصدير " + exportNotice.count + " سجل مطابق.",
+            )}
+          </p>
+        )}
       {error && !editing && !details && (
         <p
           role="alert"
