@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState, useRef, type ReactNode } from "react";
 import {
   Plus,
   Package,
@@ -1562,6 +1562,7 @@ export function Reports(p: Props) {
     [error, setError] = useState(""),
     [section, setSection] = useState("academic"),
     [options, setOptions] = useState<Record<string, Row[]>>({});
+  const requestRevision = useRef(0);
   useEffect(() => {
     p.api("/reports/options")
       .then(setOptions)
@@ -1633,14 +1634,20 @@ export function Reports(p: Props) {
   }
   async function load(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    setData(null);
+    setError("");
+    const ticket = ++requestRevision.current;
     try {
       const fd = new FormData(e.currentTarget),
         q = new URLSearchParams();
       for (const [k, v] of fd.entries()) if (v) q.set(k, String(v));
-      setData(await p.api("/reports/overview?" + q));
-      setError("");
+      const result = await p.api("/reports/overview?" + q);
+      if (ticket === requestRevision.current) {
+        setData(result);
+        setError("");
+      }
     } catch (e) {
-      setError(String(e));
+      if (ticket === requestRevision.current) setError(String(e));
     }
   }
   return (
@@ -1648,6 +1655,12 @@ export function Reports(p: Props) {
       <h2 className="text-xl font-semibold">
         {L("Cross-center reports", "تقارير المركز")}
       </h2>
+      <p className="text-xs leading-6 text-slate-500">
+        {L(
+          "Complete-or-reject: up to 300 rows per academic, attendance, workload or room section; 100 per branch, finance or payroll section. Larger results need narrower applicable filters. No partial report is exported.",
+          "تقرير كامل أو رفض: لحد 300 صف لكل قسم أكاديمي أو حضور أو عبء تدريس أو قاعات، و100 لكل قسم فروع أو حسابات أو مرتبات. لو أكبر، ضيّق الفلاتر المناسبة. مفيش تصدير لتقرير جزئي.",
+        )}
+      </p>
       <Card className="p-5">
         <form onSubmit={load} className="flex flex-wrap items-end gap-4">
           <Field label={L("From", "من")}>
