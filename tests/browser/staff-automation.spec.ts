@@ -111,6 +111,8 @@ test("configurable staff reminders persist rules and deliver only in-app", async
     contract_expiry: 1,
     low_stock: 1,
     contract_days: 14,
+    upcoming_exams: 0,
+    exam_days: 7,
   });
   await api("/system/automation", "PUT", { enabled: false });
   expect((await api("/system/automation")).rules).toEqual(rules);
