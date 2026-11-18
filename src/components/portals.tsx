@@ -1,4 +1,5 @@
 "use client";
+import { FamilySchedule } from "./family-schedule";
 import { FamilyInvoiceHistory } from "./family-invoice-history";
 import { FamilyAttendanceHistory } from "./family-attendance-history";
 import { FamilyResultHistory } from "./family-result-history";
@@ -651,42 +652,19 @@ export function Portal({
                 </div>
                 <p className="text-xs leading-6 text-slate-500">
                   {L(
-                    "Overview totals include all eligible records. Other lists are bounded previews: first100 active/completed enrollments by group name, first100 sessions from yesterday through120 days ahead, your latest50 center requests. Results, attendance and invoices below have separate complete page navigation. Lists and totals are live reads, not an archived statement.",
-                    "إجماليات الملخص بتشمل كل السجلات المناسبة. القوائم التانية معاينات محدودة: أول100 تسجيل نشط أو مكتمل بترتيب المجموعة، أول100 حصة من إمبارح ولحد120 يوم قدام، وآخر50 طلب للمركز ليك. النتايج والحضور والفواتير تحت ليهم صفحات مستقلة للسجل كله. القوائم والإجماليات قراءة مباشرة مش كشف مؤرشف.",
+                    "Overview totals include all eligible records. Other lists are bounded previews: first100 active/completed enrollments by group name, your latest50 center requests. The schedule below has complete bounded date windows. Results, attendance and invoices below have separate complete page navigation. Lists and totals are live reads, not an archived statement.",
+                    "إجماليات الملخص بتشمل كل السجلات المناسبة. القوائم التانية معاينات محدودة: أول100 تسجيل نشط أو مكتمل بترتيب المجموعة، وآخر50 طلب للمركز ليك. الجدول تحت بفترات تاريخ كاملة ضمن الحدود. النتايج والحضور والفواتير تحت ليهم صفحات مستقلة للسجل كله. القوائم والإجماليات قراءة مباشرة مش كشف مؤرشف.",
                   )}
                 </p>
                 <div className="grid gap-6 lg:grid-cols-2">
                   <Panel title={L("Upcoming sessions", "الحصص الجاية")}>
-                    {family.sessions.length ? (
-                      family.sessions.map((s: Row) => (
-                        <div
-                          key={s.id}
-                          className="flex gap-3 border-b border-slate-100 p-5 dark:border-slate-800"
-                        >
-                          <span className="h-fit rounded-xl bg-blue-50 p-3 text-blue-700 dark:bg-blue-950">
-                            <CalendarDays size={19} />
-                          </span>
-                          <div>
-                            <h3 className="font-medium">
-                              {s.topic || s.group_name}
-                            </h3>
-                            <p className="mt-1 text-sm text-slate-500">
-                              {s.group_name} · {s.teacher_name}
-                            </p>
-                            <p className="mt-2 text-xs text-slate-500">
-                              {date(s.starts_at)} · {s.classroom_name}
-                            </p>
-                            <div className="mt-2">
-                              <Badge value={s.status} ar={ar} />
-                            </div>
-                          </div>
-                        </div>
-                      ))
-                    ) : (
-                      <Empty>
-                        {L("No upcoming sessions.", "مفيش حصص جاية.")}
-                      </Empty>
-                    )}
+                    <FamilySchedule
+                      key={family.student.id}
+                      id={family.student.id}
+                      name={family.student.name}
+                      api={p.api}
+                      ar={ar}
+                    />
                   </Panel>
                   <Panel title={L("Academic results", "النتائج الدراسية")}>
                     <FamilyResultHistory
