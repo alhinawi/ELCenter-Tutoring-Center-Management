@@ -1,4 +1,9 @@
 "use client";
+import {
+  InvoicePrintHeader,
+  InvoicePrintFooter,
+  InvoicePrintSettings,
+} from "./invoice-print";
 import { ZeroPayrollClosure } from "./zero-payroll";
 import {
   PayrollSnapshot,
@@ -72,6 +77,7 @@ export default function Finance({
   toast,
   currency,
   timezone,
+  headquarters,
 }: {
   t: T;
   api: Api;
@@ -79,6 +85,7 @@ export default function Finance({
   toast: () => void;
   currency: string;
   timezone: string;
+  headquarters: boolean;
 }) {
   const ar = t.language === "English",
     L = (a: string, b: string) => (ar ? b : a);
@@ -456,6 +463,11 @@ export default function Finance({
         </>
       ) : section === "settings" ? (
         <div className="grid gap-5 lg:grid-cols-2">
+          <InvoicePrintSettings
+            api={api}
+            ar={ar}
+            editable={allowed("finance", "manage") && headquarters}
+          />
           <Card className="p-5">
             <h2 className="mb-5 font-semibold">
               {L("Chart of accounts", "شجرة الحسابات")}
@@ -1268,14 +1280,21 @@ export default function Finance({
             setError("");
           }}
         >
-          <button
-            className="mb-4 text-xs text-blue-700 dark:text-blue-300"
-            onClick={(e) =>
-              printRecord(detail.data.number, e.currentTarget.parentElement!)
-            }
-          >
-            {L("Print invoice and receipts", "طباعة الفاتورة والإيصالات")}
-          </button>
+          {allowed("finance", "print") && (
+            <button
+              className="mb-4 text-xs text-blue-700 dark:text-blue-300"
+              onClick={(e) =>
+                printRecord(detail.data.number, e.currentTarget.parentElement!)
+              }
+            >
+              {L("Print invoice and receipts", "طباعة الفاتورة والإيصالات")}
+            </button>
+          )}
+          <InvoicePrintHeader
+            snapshot={detail.print_snapshot}
+            ar={ar}
+            draft={detail.data.status === "draft"}
+          />
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
               <h3 className="text-xl font-semibold">{detail.student?.name}</h3>
@@ -1433,6 +1452,7 @@ export default function Finance({
               </Button>
             </form>
           )}
+          <InvoicePrintFooter snapshot={detail.print_snapshot} ar={ar} />
           <h3 className="mb-3 mt-6 font-semibold">
             {L("Receipt history", "سجل التحصيل")}
           </h3>
@@ -1468,6 +1488,13 @@ export default function Finance({
               )}
             </div>
           ))}
+          {!!detail.payments.length && (
+            <InvoicePrintFooter
+              snapshot={detail.print_snapshot}
+              ar={ar}
+              receipt
+            />
+          )}
           {refund?.kind === "receipt-refund" && (
             <form
               className="mt-4 grid gap-3 rounded-xl bg-amber-50 p-4 sm:grid-cols-2 dark:bg-amber-950/30"

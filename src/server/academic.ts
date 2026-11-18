@@ -339,6 +339,13 @@ export function registerAcademic(app: Hono<any>) {
     try {
       await c.env.DB.batch([
         ...stockCleanup,
+        ...(existing.includes("el_invoice_print_snapshots")
+          ? [
+              c.env.DB.prepare(
+                "DELETE FROM el_invoice_print_snapshots WHERE org_id=? AND invoice_id IN(SELECT id FROM el_invoices WHERE org_id=? AND is_demo=1)",
+              ).bind(a.org_id, a.org_id),
+            ]
+          : []),
         ...statements,
         c.env.DB.prepare(
           "UPDATE el_organizations SET demo_enabled=0 WHERE id=?",

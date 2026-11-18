@@ -1,3 +1,4 @@
+import { invoicePrintSnapshot } from "./invoice-print";
 import type { Hono } from "hono";
 import { z } from "zod";
 import { uid, now } from "./db";
@@ -248,6 +249,7 @@ export function registerPortals(app: Hono<any>) {
         status: i.status,
       },
       student,
+      print_snapshot: await invoicePrintSnapshot(c.env.DB, a.org_id, i.id),
       items: (
         await c.env.DB.prepare(
           "SELECT description,quantity,unit_price FROM el_invoice_items WHERE invoice_id=? AND org_id=?",

@@ -1,3 +1,4 @@
+import { captureInvoicePrint, invoicePrintSnapshot } from "./invoice-print";
 import type { Hono } from "hono";
 import { readLedger } from "./ledger";
 import { z } from "zod";
@@ -399,6 +400,7 @@ export function registerFinance(app: Hono<any>) {
       .first();
     return c.json({
       data: i,
+      print_snapshot: await invoicePrintSnapshot(c.env.DB, a.org_id, i.id),
       installments: (
         await c.env.DB.prepare(
           "SELECT * FROM el_installments WHERE invoice_id=? AND org_id=? ORDER BY due_date,id",
@@ -491,6 +493,7 @@ export function registerFinance(app: Hono<any>) {
       });
     await c.env.DB.batch([
       ...j.statements,
+      captureInvoicePrint(c.env.DB, i.org_id, i.id),
       c.env.DB.prepare(
         "UPDATE el_invoices SET status='issued',journal_id=? WHERE id=? AND status='draft'",
       ).bind(j.id, i.id),
