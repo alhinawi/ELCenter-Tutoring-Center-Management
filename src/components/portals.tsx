@@ -1,8 +1,9 @@
 "use client";
+import { useModalFocus } from "./modal-focus";
 import { InvoicePrintHeader, InvoicePrintFooter } from "./invoice-print";
 import { Support, Documents } from "./resources";
 import { Temporal } from "@js-temporal/polyfill";
-import { useEffect, useState, useRef, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import {
   BookOpen,
@@ -933,47 +934,7 @@ export function Dialog({
   close: () => void;
   children: ReactNode;
 }) {
-  const ref = useRef<HTMLElement>(null);
-  useEffect(() => {
-    const previous = document.activeElement as HTMLElement | null,
-      overflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    ref.current
-      ?.querySelector<HTMLElement>(
-        "button,input,select,textarea,[tabindex='0']",
-      )
-      ?.focus();
-    const handler = (e: KeyboardEvent) => {
-      const dialogs = document.querySelectorAll('[role="dialog"]');
-      if (dialogs[dialogs.length - 1] !== ref.current) return;
-      if (e.key === "Escape") {
-        e.stopPropagation();
-        close();
-      }
-      if (e.key === "Tab") {
-        const items = Array.from(
-          ref.current?.querySelectorAll<HTMLElement>(
-            'button:not(:disabled),input:not(:disabled),select:not(:disabled),textarea:not(:disabled),a[href],[tabindex="0"]',
-          ) ?? [],
-        ).filter((el) => el.getClientRects().length);
-        const first = items[0],
-          last = items[items.length - 1];
-        if (e.shiftKey && document.activeElement === first) {
-          e.preventDefault();
-          last?.focus();
-        } else if (!e.shiftKey && document.activeElement === last) {
-          e.preventDefault();
-          first?.focus();
-        }
-      }
-    };
-    document.addEventListener("keydown", handler);
-    return () => {
-      document.removeEventListener("keydown", handler);
-      document.body.style.overflow = overflow;
-      if (previous?.isConnected) previous.focus();
-    };
-  }, []);
+  const ref = useModalFocus(close);
   if (typeof document === "undefined") return null;
   return createPortal(
     <div
@@ -984,6 +945,7 @@ export function Dialog({
     >
       <section
         ref={ref}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label={title}

@@ -1,4 +1,5 @@
 "use client";
+import { useModalFocus } from "./modal-focus";
 import { RecordCustomFields } from "./custom-fields";
 import { ZeroPayrollClosure } from "./zero-payroll";
 import { Temporal } from "@js-temporal/polyfill";
@@ -424,6 +425,14 @@ export default function Operations({
     new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(n) +
     " " +
     currency;
+  const modalRef = useModalFocus(
+    () => {
+      setForm(null);
+      setDetail(null);
+      setError("");
+    },
+    !!(form || detail),
+  );
   useEffect(() => {
     if (["hr", "crm", "marketing", "notifications"].some((r) => allowed(r)))
       api("/operations/options")
@@ -968,6 +977,8 @@ export default function Operations({
       {(form || detail) && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-3 backdrop-blur-sm">
           <section
+            ref={modalRef}
+            tabIndex={-1}
             role="dialog"
             aria-modal="true"
             aria-label={form ? label(form.table) : detail?.name}
