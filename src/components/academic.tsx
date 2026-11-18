@@ -1,4 +1,5 @@
 "use client";
+import { StudentProfilePrint } from "./student-profile-print";
 import { StudentCard } from "./student-card";
 import { ProfilePhoto } from "./profile-photo";
 import { useModalFocus } from "./modal-focus";
@@ -263,6 +264,7 @@ export default function Academic({
     [sort, setSort] = useState("name"),
     [version, setVersion] = useState(0),
     [editing, setEditing] = useState<Row | null>(null),
+    [printProfile, setPrintProfile] = useState<Row | null>(null),
     [details, setDetails] = useState<Row | null>(null),
     [detailData, setDetailData] = useState<Row | null>(null),
     [transfers, setTransfers] = useState<Row[] | null>(null),
@@ -1252,7 +1254,30 @@ export default function Academic({
                   {L("Student ID card", "كارت الطالب")}
                 </Button>
               )}
-              {allowed(entity, "print") && (
+              {entity === "students" && allowed("students", "print") && (
+                <Button
+                  disabled={busy}
+                  onClick={async () => {
+                    setBusy(true);
+                    setError("");
+                    try {
+                      const r = await api(
+                        "/students/" + details.id + "/print-profile",
+                        "POST",
+                        {},
+                      );
+                      setPrintProfile(r.data);
+                    } catch (e) {
+                      setError((e as Error).message);
+                    } finally {
+                      setBusy(false);
+                    }
+                  }}
+                >
+                  {L("Private student profile", "ملف الطالب الخاص")}
+                </Button>
+              )}
+              {entity !== "students" && allowed(entity, "print") && (
                 <Button
                   onClick={() => window.print()}
                   className="w-fit bg-slate-700"
@@ -1268,6 +1293,14 @@ export default function Academic({
               )}
             </div>
           )}
+        </Dialog>
+      )}
+      {printProfile && (
+        <Dialog
+          title={L("Private student profile", "ملف الطالب الخاص")}
+          close={() => setPrintProfile(null)}
+        >
+          <StudentProfilePrint data={printProfile} ar={ar} />
         </Dialog>
       )}
       {idCard && (
