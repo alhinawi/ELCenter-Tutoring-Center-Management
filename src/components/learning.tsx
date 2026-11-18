@@ -1,4 +1,8 @@
 "use client";
+import {
+  AttendanceCorrectionForm,
+  AttendanceCorrectionQueue,
+} from "./attendance-corrections";
 import AttendanceScanner from "./attendance-scanner";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import "temporal-polyfill/global";
@@ -98,6 +102,7 @@ export function Schedule({
     }),
     [editing, setEditing] = useState<Row | null>(null),
     [roster, setRoster] = useState<Row | null>(null),
+    [correction, setCorrection] = useState<Row | null>(null),
     [rules, setRules] = useState<Row | null>(null),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
@@ -163,7 +168,9 @@ export function Schedule({
     setBusy(true);
     setError("");
     try {
-      const selected = roster.data.filter((r: Row) => r.status);
+      const selected = roster.data.filter(
+        (r: Row) => r.status && !r.attendance_id,
+      );
       if (selected.length > 500)
         throw new Error(
           "Select 500 students or fewer per atomic attendance request",
@@ -187,6 +194,23 @@ export function Schedule({
   }
   return (
     <>
+      {allowed("attendance") && (
+        <AttendanceCorrectionQueue
+          api={api}
+          ar={ar}
+          approve={allowed("attendance", "approve")}
+          version={version}
+        />
+      )}
+      {correction && (
+        <AttendanceCorrectionForm
+          api={api}
+          ar={ar}
+          row={correction}
+          close={() => setCorrection(null)}
+          done={reload}
+        />
+      )}
       <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="mb-2 text-[10px] font-semibold tracking-[0.15em] text-teal-600">
@@ -563,7 +587,7 @@ export function Schedule({
                 const row = roster.data.find(
                   (r: Row) => r.student_id === id || r.code === id,
                 );
-                if (!row) return false;
+                if (!row || row.attendance_id) return false;
                 setRoster({
                   ...roster,
                   data: roster.data.map((r: Row) =>
@@ -578,8 +602,8 @@ export function Schedule({
           )}
           <p className="mb-4 rounded-xl bg-blue-50 p-3 text-xs leading-6 text-blue-700 dark:bg-blue-950 dark:text-blue-300">
             {L(
-              "Absences create in-app guardian alerts, not SMS, email or WhatsApp messages. Up to 500 selected attendance records save together in one transaction.",
-              "الغياب بيعمل تنبيه لولي الأمر جوّه الموقع، مش رسالة SMS أو إيميل أو واتساب. لحد 500 سجل حضور بيتحفظوا مع بعض في عملية واحدة.",
+              "Initial attendance creates in-app guardian alerts, not external messages. Recorded rows are locked; request a correction for independent review. Up to 500 new records save atomically.",
+              "الحضور الأول بيعمل تنبيه جوّه الموقع، مش رسالة خارجية. السجلات المتسجلة مقفولة؛ اطلب تصحيح لمراجعة مستقلة. لحد 500 سجل جديد بيتحفظوا مع بعض.",
             )}
           </p>
           <div className="grid gap-3">
@@ -594,6 +618,7 @@ export function Schedule({
                 </div>
                 <Select
                   aria-label={`${L("Status", "الحالة")} ${r.name}`}
+                  disabled={!!r.attendance_id || !allowed("attendance", "edit")}
                   value={r.status ?? ""}
                   onChange={(e) =>
                     setRoster({
@@ -623,6 +648,17 @@ export function Schedule({
                     ),
                   )}
                 </Select>
+                {r.attendance_id && allowed("attendance", "edit") && (
+                  <button
+                    className="text-start text-xs text-blue-700"
+                    onClick={() => {
+                      setCorrection(r);
+                      setRoster(null);
+                    }}
+                  >
+                    {L("Request correction", "طلب تصحيح")}
+                  </button>
+                )}
               </div>
             ))}
           </div>
@@ -645,7 +681,7 @@ export function Schedule({
                     ...roster,
                     data: roster.data.map((r: Row) => ({
                       ...r,
-                      status: "present",
+                      status: r.attendance_id ? r.status : "present",
                     })),
                   })
                 }
@@ -653,7 +689,10 @@ export function Schedule({
                 {L("Mark all present", "الكل حاضر")}
               </button>
               <Button
-                disabled={busy || !roster.data.some((r: Row) => r.status)}
+                disabled={
+                  busy ||
+                  !roster.data.some((r: Row) => r.status && !r.attendance_id)
+                }
                 onClick={saveAttendance}
               >
                 {busy ? "…" : t.save}

@@ -66,3 +66,7 @@ Typed custom field definitions and values are attached to students, guardians, t
 ## Organization profile increment
 
 A headquarters-edited profile stores display name, tagline, contact email/phone, address and an HTTPS website with audit history. The display name reaches the authenticated workspace header without replacing the registered organization name. Correspondence language and financial-year start month are reference settings only. Browser locale still controls the UI default, and financial periods are not silently reopened/reclassified. Logo upload, branding themes, tax rules and editable print layouts remain open.
+
+## Attendance correction increment
+
+Initial backoffice attendance remains an atomic bulk entry. Once recorded, status/time/notes changes need a persisted correction and another user with attendance:approve permission. The request snapshots the attendance revision; database guards reject direct changes, self-review, repeat decisions and approval after a conflicting revision or session cancellation. Approval changes attendance, revision and absence-alert state atomically, with audit history. The current request form edits status/notes and preserves arrival/departure; the validated API supports time corrections. Review queues show the latest 100 requests in current branch scope. Dedicated teacher/family correction-request screens and configurable approval routing remain open. Approval does not send external messages or alter payroll snapshots.

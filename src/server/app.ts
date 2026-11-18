@@ -1,3 +1,4 @@
+import { registerAttendanceCorrections } from "./attendance-corrections";
 import { registerOrganizationProfile } from "./organization-profile";
 import { registerCustomFields } from "./custom-fields";
 import { registerMfa, verifyMfa } from "./mfa";
@@ -86,6 +87,14 @@ app.onError((e, c) => {
   )
     return c.json(
       { error: "Custom field definition changed. Reload before saving." },
+      409,
+    );
+  if (/Attendance correction/.test(String(e)))
+    return c.json(
+      {
+        error:
+          "Attendance changes require an independent approved correction. Reload the record if it changed.",
+      },
       409,
     );
   if (String(e).includes("FOREIGN KEY constraint"))
@@ -866,6 +875,7 @@ registerInventory(app);
 registerLibrary(app);
 registerReports(app);
 registerSystem(app);
+registerAttendanceCorrections(app);
 registerCustomFields(app);
 registerOrganizationProfile(app);
 registerMfa(app);

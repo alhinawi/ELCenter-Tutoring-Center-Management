@@ -372,7 +372,7 @@ export async function readAttendance(c: AppContext) {
   permit(c, "attendance");
   const s = await session(c, c.req.param("id")!);
   const rows = await c.env.DB.prepare(
-    "SELECT st.id student_id,st.name,st.code,a.status,a.arrival,a.departure,a.notes FROM el_enrollments e JOIN el_students st ON st.id=e.student_id LEFT JOIN el_attendance a ON a.session_id=? AND a.student_id=st.id WHERE e.group_id=? AND e.org_id=? AND e.status<>'waiting' AND unixepoch(e.created_at)<=? AND (e.status IN ('active','completed') OR unixepoch(e.updated_at)>=?) ORDER BY st.name",
+    "SELECT st.id student_id,st.name,st.code,a.id attendance_id,a.status,a.arrival,a.departure,a.notes FROM el_enrollments e JOIN el_students st ON st.id=e.student_id LEFT JOIN el_attendance a ON a.session_id=? AND a.student_id=st.id WHERE e.group_id=? AND e.org_id=? AND e.status<>'waiting' AND unixepoch(e.created_at)<=? AND (e.status IN ('active','completed') OR unixepoch(e.updated_at)>=?) ORDER BY st.name",
   )
     .bind(s.id, s.group_id, s.org_id, s.starts_at, s.starts_at)
     .all();
