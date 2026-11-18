@@ -1,4 +1,5 @@
 "use client";
+import { CoursePackages } from "./course-packages";
 import { CoursePrerequisites } from "./course-prerequisites";
 import { RecordCustomFields } from "./custom-fields";
 import { useEffect, useState, type FormEvent } from "react";
@@ -443,6 +444,16 @@ export default function Academic({
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          {entity === "courses" && (
+            <CoursePackages
+              api={api}
+              ar={ar}
+              options={options}
+              create={allowed("courses", "create")}
+              edit={allowed("courses", "edit")}
+              enroll={allowed("groups", "edit") && allowed("finance", "create")}
+            />
+          )}
           {entity === "students" && (
             <button
               className="rounded-xl border border-slate-200 bg-white p-3 text-slate-500 dark:border-slate-700 dark:bg-slate-900"
