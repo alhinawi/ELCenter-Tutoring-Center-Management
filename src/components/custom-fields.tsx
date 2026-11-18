@@ -11,6 +11,7 @@ const entities = [
   "courses",
   "groups",
   "classrooms",
+  "employees",
 ];
 const names: Record<string, string> = {
   students: "الطلبة",
@@ -19,6 +20,7 @@ const names: Record<string, string> = {
   courses: "الكورسات",
   groups: "المجموعات",
   classrooms: "القاعات",
+  employees: "الموظفين",
 };
 export function CustomFieldDefinitions({
   api,

@@ -2,6 +2,7 @@ import type { Hono } from "hono";
 import { z } from "zod";
 import { audit, permit, type AppContext } from "./app";
 import { record } from "./academic";
+import { operationRecord } from "./operations";
 import { uid, now } from "./db";
 import { assert } from "./security";
 const entity = z.enum([
@@ -11,6 +12,7 @@ const entity = z.enum([
   "courses",
   "groups",
   "classrooms",
+  "employees",
 ]);
 const definition = z
   .object({
@@ -118,8 +120,9 @@ export function registerCustomFields(app: Hono<any>) {
   });
   app.get("/api/record-fields/:entity/:id", async (c: AppContext) => {
     const e = entity.parse(c.req.param("entity"));
-    permit(c, e);
-    await record(c, e, c.req.param("id")!);
+    permit(c, e === "employees" ? "hr" : e);
+    if (e === "employees") await operationRecord(c, e, c.req.param("id")!);
+    else await record(c, e, c.req.param("id")!);
     const a = c.get("actor");
     const rows = (
       await c.env.DB.prepare(
@@ -139,8 +142,9 @@ export function registerCustomFields(app: Hono<any>) {
   });
   app.put("/api/record-fields/:entity/:id", async (c: AppContext) => {
     const e = entity.parse(c.req.param("entity"));
-    permit(c, e, "edit");
-    await record(c, e, c.req.param("id")!);
+    permit(c, e === "employees" ? "hr" : e, "edit");
+    if (e === "employees") await operationRecord(c, e, c.req.param("id")!);
+    else await record(c, e, c.req.param("id")!);
     const a = c.get("actor"),
       d = z
         .object({

@@ -48,3 +48,7 @@ Production backup scheduling, encryption-at-rest of backup artifacts, retention,
 - Email reset/verification, Google sign-in and separately approved external providers.
 - Full load/security review and remaining detailed ERP requirements in ROADMAP.md.
 - Device camera verification and assistive-technology testing beyond automated browser checks.
+
+## Employee custom-field migration
+
+0023_employee_custom_fields.sql expands the allowed record kinds by rebuilding only the el_custom_fields / el_custom_values pair. Existing rows are copied, the old pair is replaced, and indexes plus archive/identity/cap/cleanup guards are recreated, with employee cleanup added. This is not an additive-index-only migration. Use the approved backup-first migration process, pause application writes, apply the complete file as a single controlled migration, and verify both table counts, representative archived values, foreign_key_check and guard behavior before reopening writes or serving code that accepts employee definitions. Tested with preserved records in Node SQLite and isolated local D1, not against production. Never run fragments or blindly rerun the rebuild on a partially applied database.

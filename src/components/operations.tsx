@@ -1,4 +1,5 @@
 "use client";
+import { RecordCustomFields } from "./custom-fields";
 import { ZeroPayrollClosure } from "./zero-payroll";
 import { Temporal } from "@js-temporal/polyfill";
 import { useEffect, useState } from "react";
@@ -1255,28 +1256,37 @@ export default function Operations({
                   </Button>
                 </form>
               ) : detail && section === "employees" ? (
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {[
-                    "contracts",
-                    "employee_attendance",
-                    "leave_requests",
-                    "employee_reviews",
-                  ].map((table) => (
-                    <Button
-                      key={table}
-                      onClick={() =>
-                        setForm({
-                          table,
-                          row: {
-                            employee_id: detail.id,
-                            branch_id: detail.branch_id,
-                          },
-                        })
-                      }
-                    >
-                      {label(table)}
-                    </Button>
-                  ))}
+                <div className="space-y-5">
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {[
+                      "contracts",
+                      "employee_attendance",
+                      "leave_requests",
+                      "employee_reviews",
+                    ].map((table) => (
+                      <Button
+                        key={table}
+                        onClick={() =>
+                          setForm({
+                            table,
+                            row: {
+                              employee_id: detail.id,
+                              branch_id: detail.branch_id,
+                            },
+                          })
+                        }
+                      >
+                        {label(table)}
+                      </Button>
+                    ))}
+                  </div>
+                  <RecordCustomFields
+                    api={api}
+                    ar={ar}
+                    entity="employees"
+                    id={detail.id}
+                    editable={allowed("hr", "edit")}
+                  />
                 </div>
               ) : detail && section === "leads" ? (
                 <>
