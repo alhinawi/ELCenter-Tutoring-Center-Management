@@ -1,4 +1,5 @@
 "use client";
+import { useModalFocus } from "./modal-focus";
 import { CoursePackages } from "./course-packages";
 import { CoursePrerequisites } from "./course-prerequisites";
 import { RecordCustomFields } from "./custom-fields";
@@ -211,19 +212,15 @@ function Dialog({
   close: () => void;
   children: React.ReactNode;
 }) {
-  useEffect(() => {
-    const fn = (e: KeyboardEvent) => {
-      if (e.key === "Escape") close();
-    };
-    document.addEventListener("keydown", fn);
-    return () => document.removeEventListener("keydown", fn);
-  }, []);
+  const ref = useModalFocus(close);
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-3 backdrop-blur-sm"
       onClick={close}
     >
       <section
+        ref={ref}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label={title}

@@ -1,4 +1,5 @@
 "use client";
+import { useModalFocus } from "./modal-focus";
 import {
   AttendanceCorrectionForm,
   AttendanceCorrectionQueue,
@@ -56,12 +57,15 @@ function Dialog({
   close: () => void;
   children: React.ReactNode;
 }) {
+  const ref = useModalFocus(close);
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-3 backdrop-blur-sm"
       onClick={close}
     >
       <section
+        ref={ref}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label={title}

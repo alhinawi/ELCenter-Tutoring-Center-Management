@@ -1,4 +1,5 @@
 "use client";
+import { useModalFocus } from "./modal-focus";
 import { OrganizationProfile } from "./organization-profile";
 import Operations from "./operations";
 import { CustomFieldDefinitions } from "./custom-fields";
@@ -1025,24 +1026,15 @@ function Modal({
   children: ReactNode;
   t: T;
 }) {
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") close();
-    };
-    document.addEventListener("keydown", onKey);
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = prev;
-    };
-  }, []);
+  const ref = useModalFocus(close);
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-3 backdrop-blur-sm"
       onClick={close}
     >
       <section
+        ref={ref}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label={title}
