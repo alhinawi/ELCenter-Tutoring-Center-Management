@@ -1,0 +1,10 @@
+name = "elcenter"
+compatibility_date = "2026-11-18"
+pages_build_output_dir = "out"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "sherkty"
+database_id = "37626782-198d-47dc-b23f-29a969a90c23"
+migrations_dir = "migrations"
+migrations_table = "el_migrations"
