@@ -1,5 +1,30 @@
 # ELCenter
 
+[Open the live application](https://elcenter.pages.dev/)
+
+## See it in action
+
+Headquarters overview, fictional branch network and student records.
+
+![ELCenter desktop dashboard](docs/media/desktop.webp)
+
+| Branches | Students |
+| --- | --- |
+| ![Branches view](docs/media/branches.webp) | ![Students view](docs/media/students.webp) |
+
+### Short interface tour
+
+![ELCenter live interface tour](docs/media/demo.gif)
+
+A short GIF of three real navigation captures, not a continuous screen recording. Captured from the live site on November 19, 2026. The captures show the deployed academic workspace, not every feature in the newer repository release. All displayed records are fictional demo data.
+
+<details>
+<summary>Mobile layout (390px)</summary>
+
+<img src="docs/media/mobile.webp" alt="ELCenter mobile dashboard" width="390" />
+
+</details>
+
 A bilingual, multi-branch education operations platform. Next.js and Tailwind on the frontend, Hono Pages Functions and a relational Cloudflare D1 database on the server.
 
 ## Working release: Connected operations, portals, resources and security
