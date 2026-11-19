@@ -38,7 +38,9 @@ test("scheduling, attendance and assessment", async (t) => {
   await call("/demo/academic-seed", "POST", {});
   const g = (await call("/groups")).j.data[0],
     students = (await call("/students")).j.data;
-  const start = Math.floor(Date.now() / 86400000) * 86400 + 11 * 3600,
+  // Yesterday at11:00 UTC is always in the past, including runs before11:00 UTC.
+  // Demo enrollments predate it by60 days, preserving historical roster checks.
+  const start = (Math.floor(Date.now() / 86400000) - 1) * 86400 + 11 * 3600,
     body = {
       group_id: g.id,
       teacher_id: g.teacher_id,
@@ -381,6 +383,66 @@ test("scheduling, attendance and assessment", async (t) => {
       409,
     );
   });
+  await t.test(
+    "future attendance and grading still reject before other row validation",
+    async () => {
+      const future = start + 3 * 86400,
+        session = await call("/sessions", "POST", {
+          ...body,
+          starts_at: future,
+          ends_at: future + 3600,
+        });
+      assert.equal(session.r.status, 201, JSON.stringify(session.j));
+      const attendance = await call(
+        `/sessions/${session.j.ids[0]}/attendance`,
+        "POST",
+        { rows: [{ student_id: students[0].id, status: "present" }] },
+      );
+      assert.equal(attendance.r.status, 409);
+      assert.match(attendance.j.error, /future attendance/i);
+      const exam = await call("/exams", "POST", {
+        name: "Fictional Future Test",
+        group_id: g.id,
+        scheduled_at: future,
+        max_score: 10,
+        pass_score: 5,
+      });
+      assert.equal(exam.r.status, 201, JSON.stringify(exam.j));
+      const question = await call(`/exams/${exam.j.id}/questions`, "POST", {
+        type: "short_answer",
+        prompt: "Fictional future question",
+        correct_answer: "test",
+        points: 10,
+      });
+      assert.equal(question.r.status, 201, JSON.stringify(question.j));
+      const e = (await call("/exams/" + exam.j.id)).j.data;
+      assert.equal(
+        (
+          await call("/exams/" + exam.j.id, "PUT", {
+            ...e,
+            status: "published",
+          })
+        ).r.status,
+        200,
+      );
+      const manual = await call(`/exams/${exam.j.id}/results`, "POST", {
+        student_id: students[0].id,
+        score: 10,
+      });
+      assert.equal(manual.r.status, 409);
+      assert.match(manual.j.error, /future exam/i);
+      const automatic = await call(
+        `/exams/${exam.j.id}/grade-answers`,
+        "POST",
+        {
+          student_id: students[0].id,
+          answers: [{ question_id: question.j.id, answer: "test" }],
+        },
+      );
+      assert.equal(automatic.r.status, 409);
+      assert.match(automatic.j.error, /future exam/i);
+    },
+  );
   await t.test("all automatic answer types behave as documented", () => {
     assert.equal(gradeAnswer("true_false", "TRUE", "true"), true);
     assert.equal(
