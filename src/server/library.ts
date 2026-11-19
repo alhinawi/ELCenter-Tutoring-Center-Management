@@ -275,15 +275,36 @@ export function registerLibrary(app: Hono<any>) {
   });
   app.get("/api/library/reservations", async (c: AppContext) => {
     permit(c, "library");
-    const a = c.get("actor");
+    const a = c.get("actor"),
+      page = z.coerce
+        .number()
+        .int()
+        .min(1)
+        .max(10000)
+        .parse(c.req.query("page") ?? 1),
+      status = z
+        .enum(["", "waiting", "fulfilled", "cancelled"])
+        .parse(c.req.query("status") ?? ""),
+      where =
+        "r.org_id=? AND (? IS NULL OR r.branch_id=?) AND (?='' OR r.status=?)",
+      args = [a.org_id, a.branch_id, a.branch_id, status, status];
+    const count = await c.env.DB.prepare(
+        "SELECT count(*) total FROM el_library_reservations r WHERE " + where,
+      )
+        .bind(...args)
+        .first<{ total: number }>(),
+      rows = await c.env.DB.prepare(
+        "SELECT r.id,r.status,r.created_at,s.name student_name,b.title,br.name branch_name FROM el_library_reservations r JOIN el_students s ON s.id=r.student_id AND s.org_id=r.org_id JOIN el_library_books b ON b.id=r.book_id AND b.org_id=r.org_id JOIN el_branches br ON br.id=r.branch_id AND br.org_id=r.org_id WHERE " +
+          where +
+          " ORDER BY r.created_at,r.id LIMIT 20 OFFSET ?",
+      )
+        .bind(...args, (page - 1) * 20)
+        .all();
     return c.json({
-      data: (
-        await c.env.DB.prepare(
-          "SELECT r.*,s.name student_name,b.title,br.name branch_name FROM el_library_reservations r JOIN el_students s ON s.id=r.student_id JOIN el_library_books b ON b.id=r.book_id JOIN el_branches br ON br.id=r.branch_id WHERE r.org_id=? AND (? IS NULL OR r.branch_id=?) ORDER BY r.created_at,r.id LIMIT 200",
-        )
-          .bind(a.org_id, a.branch_id, a.branch_id)
-          .all()
-      ).results,
+      data: rows.results,
+      total: count?.total ?? 0,
+      page,
+      page_size: 20,
     });
   });
   app.post("/api/library/reservations", async (c: AppContext) => {
