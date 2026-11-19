@@ -296,15 +296,36 @@ export function registerLibrary(app: Hono<any>) {
   });
   app.get("/api/portal/library/:student", async (c: AppContext) => {
     const a = c.get("actor"),
-      s = await ownedStudent(c, c.req.param("student")!);
+      s = await ownedStudent(c, c.req.param("student")!),
+      page = z.coerce
+        .number()
+        .int()
+        .min(1)
+        .max(10000)
+        .parse(c.req.query("page") ?? 1),
+      status = z
+        .enum(["", "on_loan", "returned"])
+        .parse(c.req.query("status") ?? ""),
+      where =
+        "r.org_id=? AND r.student_id=? AND (?='' OR (?='on_loan' AND r.returned_on IS NULL) OR (?='returned' AND r.returned_on IS NOT NULL))",
+      args = [a.org_id, s.id, status, status, status];
+    const count = await c.env.DB.prepare(
+        "SELECT count(*) total FROM el_borrow_records r WHERE " + where,
+      )
+        .bind(...args)
+        .first<{ total: number }>(),
+      rows = await c.env.DB.prepare(
+        "SELECT r.id,r.borrowed_on,r.due_on,r.returned_on,r.late_days,r.penalty_total,b.title,co.barcode FROM el_borrow_records r JOIN el_library_copies co ON co.id=r.copy_id AND co.org_id=r.org_id JOIN el_library_books b ON b.id=co.book_id AND b.org_id=co.org_id WHERE " +
+          where +
+          " ORDER BY r.created_at DESC,r.id DESC LIMIT 20 OFFSET ?",
+      )
+        .bind(...args, (page - 1) * 20)
+        .all();
     return c.json({
-      data: (
-        await c.env.DB.prepare(
-          "SELECT r.id,r.borrowed_on,r.due_on,r.returned_on,r.late_days,r.penalty_total,b.title,co.barcode FROM el_borrow_records r JOIN el_library_copies co ON co.id=r.copy_id JOIN el_library_books b ON b.id=co.book_id WHERE r.org_id=? AND r.student_id=? ORDER BY r.created_at DESC LIMIT 100",
-        )
-          .bind(a.org_id, s.id)
-          .all()
-      ).results,
+      data: rows.results,
+      total: count?.total ?? 0,
+      page,
+      page_size: 20,
     });
   });
 }

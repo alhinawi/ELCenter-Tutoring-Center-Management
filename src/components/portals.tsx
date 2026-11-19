@@ -1,4 +1,5 @@
 "use client";
+import { FamilyLibraryHistory } from "./family-library-history";
 import { FamilyRequestHistory } from "./family-request-history";
 import { FamilySchedule } from "./family-schedule";
 import { FamilyInvoiceHistory } from "./family-invoice-history";
@@ -185,7 +186,6 @@ export function Portal({
     [mode, setMode] = useState("overview"),
     [notices, setNotices] = useState<Row[]>([]),
     [invoice, setInvoice] = useState<Row | null>(null),
-    [library, setLibrary] = useState<Row[]>([]),
     [correction, setCorrection] = useState<Row | null>(null);
   const teacher = user.system_key === "teacher";
   const date = (n: number) =>
@@ -241,12 +241,6 @@ export function Portal({
       if (request === familyRequest.current) setError(String(e));
     }
   }
-  useEffect(() => {
-    if (mode === "library" && child && !teacher)
-      p.api("/portal/library/" + child)
-        .then((r) => setLibrary(r.data))
-        .catch((e) => setError(String(e)));
-  }, [mode, child]);
   const tabs = [
     ["overview", L("My day", "يومي")],
     ["learning", L("Learning space", "مساحة التعلم")],
@@ -393,28 +387,15 @@ export function Portal({
                 }
               />
             ) : mode === "library" ? (
-              <Panel
-                title={L(
-                  "Borrowing history, latest 100",
-                  "سجل الاستعارة، آخر 100",
+              <Panel title={L("Borrowing history", "سجل الاستعارة")}>
+                {child && (
+                  <FamilyLibraryHistory
+                    key={child}
+                    id={child}
+                    api={p.api}
+                    ar={ar}
+                  />
                 )}
-              >
-                <Table
-                  heads={[
-                    L("Book", "الكتاب"),
-                    L("Borrowed", "الاستعارة"),
-                    L("Due", "الموعد"),
-                    L("Returned", "الإرجاع"),
-                    L("Recorded penalty", "الغرامة المسجلة"),
-                  ]}
-                  rows={library.map((r) => [
-                    r.title,
-                    r.borrowed_on,
-                    r.due_on,
-                    r.returned_on ?? L("On loan", "قيد الاستعارة"),
-                    money(r.penalty_total),
-                  ])}
-                />
               </Panel>
             ) : mode === "learning" ? (
               <LearningSpace {...p} studentId={child} />
