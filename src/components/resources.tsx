@@ -282,6 +282,11 @@ export default function Resources(p: Props) {
     ),
     [tab, setTab] = useState(p.allowed("inventory") ? "stock" : "books"),
     [rows, setRows] = useState<Row[]>([]),
+    [loanPage, setLoanPage] = useState(1),
+    [loanStatus, setLoanStatus] = useState(""),
+    [loanTotal, setLoanTotal] = useState(0),
+    [loadingRows, setLoadingRows] = useState(false),
+    rowRequest = useRef(0),
     [options, setOptions] = useState<Record<string, Row[]>>({}),
     [error, setError] = useState(""),
     [detail, setDetail] = useState<Row | null>(null);
@@ -306,10 +311,20 @@ export default function Resources(p: Props) {
           "assets",
         ];
   async function load() {
+    const request = ++rowRequest.current;
+    setRows([]);
+    setLoanTotal(0);
+    setLoadingRows(true);
     try {
       setError("");
       if (!["inventory", "library"].includes(area)) return;
-      setRows((await p.api(paths[tab])).data);
+      const result = await p.api(
+        paths[tab] +
+          (tab === "loans" ? `?page=${loanPage}&status=${loanStatus}` : ""),
+      );
+      if (request !== rowRequest.current) return;
+      setRows(result.data);
+      if (tab === "loans") setLoanTotal(result.total);
       const o: Record<string, Row[]> = await p.api("/resource-options");
       const requests: Record<string, string> = {
         branches: "/branches",
@@ -342,14 +357,23 @@ export default function Resources(p: Props) {
         if (key === "copies")
           o[key] = r.data.filter((x: Row) => x.status === "available");
       }
-      setOptions(o);
+      if (request === rowRequest.current) setOptions(o);
     } catch (e) {
-      setError(String(e));
+      if (request === rowRequest.current) {
+        setRows([]);
+        setLoanTotal(0);
+        setError(String(e));
+      }
+    } finally {
+      if (request === rowRequest.current) setLoadingRows(false);
     }
   }
   useEffect(() => {
     void load();
-  }, [area, tab]);
+    return () => {
+      rowRequest.current++;
+    };
+  }, [area, tab, loanPage, loanStatus]);
   async function action(path: string, body?: Row) {
     try {
       await p.api(path, "POST", body ?? {});
@@ -556,6 +580,75 @@ export default function Resources(p: Props) {
               />
             )}
           </div>
+          {tab === "loans" && (
+            <section
+              aria-label={L("Staff loan navigation", "تنقل استعارات الموظفين")}
+              className="space-y-3 rounded-2xl bg-white p-5 dark:bg-slate-900"
+            >
+              <p className="text-xs leading-6 text-slate-500">
+                {L(
+                  "All recorded loans in your membership branch scope, 20 per page. Saved penalties are records, not collected money or live overdue estimates. Current catalog titles and student names label historical loans. Return actions retain their existing permission and saved-date checks.",
+                  "كل الاستعارات المسجلة في نطاق فرع عضويتك،20 في الصفحة. الغرامات المحفوظة سجلات مش فلوس متحصلة أو تقدير تأخير مباشر. عنوان الكتاب واسم الطالب الحاليين لتوضيح السجل. الإرجاع لسه محتاج الصلاحية ومراجعة التاريخ المسجل.",
+                )}
+              </p>
+              <Field label={L("Loan status filter", "تصفية حالة الاستعارة")}>
+                <Select
+                  aria-label={L("Loan status filter", "تصفية حالة الاستعارة")}
+                  value={loanStatus}
+                  onChange={(e) => {
+                    rowRequest.current++;
+                    setRows([]);
+                    setLoanTotal(0);
+                    setError("");
+                    setLoadingRows(true);
+                    setLoanStatus(e.target.value);
+                    setLoanPage(1);
+                  }}
+                >
+                  <option value="">{L("All loans", "كل الاستعارات")}</option>
+                  <option value="on_loan">
+                    {L("On loan", "قيد الاستعارة")}
+                  </option>
+                  <option value="returned">
+                    {L("Returned", "تم الإرجاع")}
+                  </option>
+                </Select>
+              </Field>
+              {loadingRows ? (
+                <p role="status">{L("Loading loans…", "تحميل الاستعارات…")}</p>
+              ) : (
+                !error && (
+                  <p role="status" className="text-xs text-slate-500">
+                    {L("Matching loans", "الاستعارات المطابقة")}: {loanTotal} ·{" "}
+                    {L("Page", "صفحة")} {loanPage} /{" "}
+                    {Math.max(1, Math.ceil(loanTotal / 20))}
+                  </p>
+                )
+              )}
+              <div className="flex flex-wrap gap-3">
+                <Button
+                  disabled={loadingRows || loanPage === 1}
+                  onClick={() => {
+                    setRows([]);
+                    setLoanTotal(0);
+                    setLoanPage((v) => v - 1);
+                  }}
+                >
+                  {L("Previous loans", "الاستعارات السابقة")}
+                </Button>
+                <Button
+                  disabled={loadingRows || loanPage * 20 >= loanTotal}
+                  onClick={() => {
+                    setRows([]);
+                    setLoanTotal(0);
+                    setLoanPage((v) => v + 1);
+                  }}
+                >
+                  {L("Next loans", "الاستعارات التالية")}
+                </Button>
+              </div>
+            </section>
+          )}
           <Card className="overflow-hidden">
             <Table
               heads={[

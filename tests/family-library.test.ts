@@ -107,7 +107,7 @@ test("family library history pages complete current-owned borrowing records", as
       1800000000,
     );
   const ids = new Set<string>();
-  for (let i = 0; i < 121; i++) {
+  for (let i = 0; i < 221; i++) {
     const copy = randomUUID(),
       id = randomUUID();
     ids.add(id);
@@ -130,13 +130,13 @@ test("family library history pages complete current-owned borrowing records", as
   }
   const path = `/portal/library/${own}`;
   await t.test(
-    "121 tied-time loans enumerate exactly with private fields omitted",
+    "221 tied-time loans enumerate exactly with private fields omitted",
     async () => {
       const seen = new Set<string>();
-      for (let page = 1; page <= 7; page++) {
+      for (let page = 1; page <= 12; page++) {
         const r = await call(path + "?page=" + page, "GET", undefined, student);
         assert.equal(r.r.status, 200, JSON.stringify(r.j));
-        assert.equal(r.j.total, 121);
+        assert.equal(r.j.total, 221);
         assert.equal(r.j.page_size, 20);
         for (const row of r.j.data) {
           assert(ids.has(row.id));
@@ -155,9 +155,9 @@ test("family library history pages complete current-owned borrowing records", as
             assert(!(key in row));
         }
       }
-      assert.equal(seen.size, 121);
+      assert.equal(seen.size, 221);
       assert.deepEqual(
-        (await call(path + "?page=8", "GET", undefined, student)).j.data,
+        (await call(path + "?page=13", "GET", undefined, student)).j.data,
         [],
       );
       assert.deepEqual(
@@ -175,8 +175,8 @@ test("family library history pages complete current-owned borrowing records", as
     "on-loan and returned filters have exact counts; malformed filters reject",
     async () => {
       for (const [status, total] of [
-        ["on_loan", 60],
-        ["returned", 61],
+        ["on_loan", 110],
+        ["returned", 111],
       ] as const) {
         const r = await call(
           path + "?status=" + status,
@@ -206,6 +206,101 @@ test("family library history pages complete current-owned borrowing records", as
           400,
           q,
         );
+    },
+  );
+  await t.test(
+    "staff complete scoped pages expose older active loans and reject portal callers",
+    async () => {
+      const staff = { cookie: "", csrf: "" };
+      await account("business_owner", staff);
+      const seen = new Set<string>();
+      for (let page = 1; page <= 12; page++) {
+        const r = await call(
+          "/library/loans?page=" + page,
+          "GET",
+          undefined,
+          staff,
+        );
+        assert.equal(r.r.status, 200, JSON.stringify(r.j));
+        assert.equal(r.j.total, 221);
+        for (const row of r.j.data) {
+          assert(!seen.has(row.id));
+          seen.add(row.id);
+          assert(row.student_name);
+          for (const key of [
+            "issued_by",
+            "returned_by",
+            "notes",
+            "student_id",
+            "branch_id",
+          ])
+            assert(!(key in row));
+        }
+      }
+      assert.equal(seen.size, 221);
+      for (const [status, total] of [
+        ["on_loan", 110],
+        ["returned", 111],
+      ] as const)
+        assert.equal(
+          (
+            await call(
+              "/library/loans?status=" + status,
+              "GET",
+              undefined,
+              staff,
+            )
+          ).j.total,
+          total,
+        );
+      for (const q of ["page=0", "page=1.5", "page=10001", "status=overdue"])
+        assert.equal(
+          (await call("/library/loans?" + q, "GET", undefined, staff)).r.status,
+          400,
+        );
+      for (const c of [student, guardian, teacher])
+        assert.equal(
+          (await call("/library/loans", "GET", undefined, c)).r.status,
+          403,
+        );
+      const b = (
+          await call("/branches", "POST", {
+            name: "Fictional Remote",
+            code: "FL-REMOTE",
+            capacity: 20,
+            status: "active",
+          })
+        ).j.id,
+        learner = (
+          await call("/students", "POST", {
+            name: "Fictional Remote Reader",
+            code: "FLR",
+            branch_id: b,
+          })
+        ).j.id,
+        copy = randomUUID();
+      raw
+        .prepare(
+          "INSERT INTO el_library_copies(id,org_id,branch_id,book_id,barcode) VALUES(?,?,?,?,?)",
+        )
+        .run(copy, org, b, book, "PRIVATE-REMOTE-COPY");
+      raw
+        .prepare(
+          "INSERT INTO el_borrow_records(id,org_id,branch_id,copy_id,student_id,borrowed_on,due_on,issued_by,created_at) VALUES(?,?,?,?,?,'2026-01-01','2026-01-10',?,1800000000)",
+        )
+        .run(randomUUID(), org, b, copy, learner, me.user.user_id);
+      assert.equal(
+        (await call("/library/loans", "GET", undefined, staff)).j.total,
+        221,
+      );
+      assert.equal((await call("/library/loans")).j.total, 222);
+      const f = { cookie: "", csrf: "" };
+      await call("/auth/demo", "POST", {}, f);
+      await call("/me", "GET", undefined, f);
+      assert.equal(
+        (await call("/library/loans", "GET", undefined, f)).j.total,
+        0,
+      );
     },
   );
   await t.test(
