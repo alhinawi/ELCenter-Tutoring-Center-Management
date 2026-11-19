@@ -304,6 +304,160 @@ test("family library history pages complete current-owned borrowing records", as
     },
   );
   await t.test(
+    "reservation pages retain complete oldest-first ties, status counts, branch isolation and FIFO cancellation",
+    async () => {
+      const insert = raw.prepare(
+          "INSERT INTO el_library_reservations(id,org_id,branch_id,book_id,student_id,status,created_at) VALUES(?,?,?,?,?,?,?)",
+        ),
+        all: string[] = [];
+      for (let i = 0; i < 221; i++) {
+        const id = randomUUID();
+        all.push(id);
+        insert.run(
+          id,
+          org,
+          branch,
+          book,
+          own,
+          i % 2 ? "fulfilled" : "cancelled",
+          1700000000,
+        );
+      }
+      const first = randomUUID(),
+        second = randomUUID();
+      all.push(first, second);
+      insert.run(first, org, branch, book, own, "waiting", 1800000001);
+      insert.run(second, org, branch, book, other, "waiting", 1800000002);
+      const staff = { cookie: "", csrf: "" };
+      await account("business_owner", staff);
+      const seen: string[] = [];
+      for (let page = 1; page <= 12; page++) {
+        const r = await call(
+          "/library/reservations?page=" + page,
+          "GET",
+          undefined,
+          staff,
+        );
+        assert.equal(r.r.status, 200, JSON.stringify(r.j));
+        assert.equal(r.j.total, 223);
+        assert.equal(r.j.page_size, 20);
+        for (const row of r.j.data) {
+          seen.push(row.id);
+          assert(row.student_name && row.branch_name && row.title);
+          for (const key of [
+            "student_id",
+            "book_id",
+            "org_id",
+            "branch_id",
+            "borrow_id",
+            "is_demo",
+          ])
+            assert(!(key in row));
+        }
+      }
+      assert.deepEqual(seen, [...all.slice(0, 221).sort(), first, second]);
+      for (const [status, total] of [
+        ["waiting", 2],
+        ["fulfilled", 110],
+        ["cancelled", 111],
+      ] as const)
+        assert.equal(
+          (
+            await call(
+              "/library/reservations?status=" + status,
+              "GET",
+              undefined,
+              staff,
+            )
+          ).j.total,
+          total,
+        );
+      for (const q of [
+        "page=",
+        "page=0",
+        "page=1.5",
+        "page=10001",
+        "status=other",
+      ])
+        assert.equal(
+          (await call("/library/reservations?" + q, "GET", undefined, staff)).r
+            .status,
+          400,
+        );
+      for (const c of [student, guardian, teacher])
+        assert.equal(
+          (await call("/library/reservations", "GET", undefined, c)).r.status,
+          403,
+        );
+      const remote = (
+        raw
+          .prepare(
+            "SELECT id FROM el_branches WHERE org_id=? AND code='FL-REMOTE'",
+          )
+          .get(org) as any
+      ).id;
+      insert.run(randomUUID(), org, remote, book, own, "cancelled", 1700000000);
+      assert.equal(
+        (await call("/library/reservations", "GET", undefined, staff)).j.total,
+        223,
+      );
+      assert.equal((await call("/library/reservations")).j.total, 224);
+      const copy = (
+        await call("/library/copies", "POST", {
+          book_id: book,
+          branch_id: branch,
+          barcode: "FIFO-CHECK",
+        })
+      ).j.id;
+      assert.equal(
+        (
+          await call("/library/loans", "POST", {
+            copy_id: copy,
+            student_id: other,
+            borrowed_on: "2026-01-01",
+            due_on: "2026-01-10",
+          })
+        ).r.status,
+        409,
+      );
+      assert.equal(
+        (await call("/library/reservations/" + first + "/cancel", "POST", {})).r
+          .status,
+        200,
+      );
+      assert.equal(
+        (await call("/library/reservations/" + first + "/cancel", "POST", {})).r
+          .status,
+        409,
+      );
+      assert.equal(
+        (
+          await call("/library/loans", "POST", {
+            copy_id: copy,
+            student_id: other,
+            borrowed_on: "2026-01-01",
+            due_on: "2026-01-10",
+          })
+        ).r.status,
+        201,
+      );
+      const r = await call(
+        "/library/reservations?status=waiting",
+        "GET",
+        undefined,
+        staff,
+      );
+      assert.equal(r.j.total, 0);
+      const f = { cookie: "", csrf: "" };
+      await call("/auth/demo", "POST", {}, f);
+      await call("/me", "GET", undefined, f);
+      assert.equal(
+        (await call("/library/reservations", "GET", undefined, f)).j.total,
+        0,
+      );
+    },
+  );
+  await t.test(
     "current role, relationship, profile, branch and link gate every page",
     async () => {
       for (const c of [teacher, unlinked])

@@ -282,6 +282,8 @@ export default function Resources(p: Props) {
     ),
     [tab, setTab] = useState(p.allowed("inventory") ? "stock" : "books"),
     [rows, setRows] = useState<Row[]>([]),
+    [reservationPage, setReservationPage] = useState(1),
+    [reservationStatus, setReservationStatus] = useState(""),
     [loanPage, setLoanPage] = useState(1),
     [loanStatus, setLoanStatus] = useState(""),
     [loanTotal, setLoanTotal] = useState(0),
@@ -320,11 +322,15 @@ export default function Resources(p: Props) {
       if (!["inventory", "library"].includes(area)) return;
       const result = await p.api(
         paths[tab] +
-          (tab === "loans" ? `?page=${loanPage}&status=${loanStatus}` : ""),
+          (tab === "loans"
+            ? `?page=${loanPage}&status=${loanStatus}`
+            : tab === "reservations"
+              ? `?page=${reservationPage}&status=${reservationStatus}`
+              : ""),
       );
       if (request !== rowRequest.current) return;
       setRows(result.data);
-      if (tab === "loans") setLoanTotal(result.total);
+      if (["loans", "reservations"].includes(tab)) setLoanTotal(result.total);
       const o: Record<string, Row[]> = await p.api("/resource-options");
       const requests: Record<string, string> = {
         branches: "/branches",
@@ -373,7 +379,7 @@ export default function Resources(p: Props) {
     return () => {
       rowRequest.current++;
     };
-  }, [area, tab, loanPage, loanStatus]);
+  }, [area, tab, loanPage, loanStatus, reservationPage, reservationStatus]);
   async function action(path: string, body?: Row) {
     try {
       await p.api(path, "POST", body ?? {});
@@ -645,6 +651,88 @@ export default function Resources(p: Props) {
                   }}
                 >
                   {L("Next loans", "الاستعارات التالية")}
+                </Button>
+              </div>
+            </section>
+          )}
+          {tab === "reservations" && (
+            <section
+              aria-label={L(
+                "Staff reservation navigation",
+                "تنقل حجوزات المكتبة",
+              )}
+              className="space-y-3 rounded-2xl bg-white p-5 dark:bg-slate-900"
+            >
+              <p className="text-xs leading-6 text-slate-500">
+                {L(
+                  "All recorded reservations in your membership branch scope, 20 per page, oldest recorded first with ID ties. Status filters do not change checkout's FIFO rule for waiting requests for the same book and branch. Current catalog/student/branch names label historical rows. Cancel affects only a waiting reservation, not a loan, refund or external message.",
+                  "كل الحجوزات المسجلة في نطاق فرع عضويتك،20 في الصفحة، الأقدم تسجيلا الأول ومعرّف الحجز بيفصل نفس الوقت. التصفية مش بتغير أولوية المنتظرين لنفس الكتاب والفرع عند الاستعارة. أسماء الكتاب والطالب والفرع الحالية لتوضيح السجل. الإلغاء لحجز منتظر بس، مش استعارة أو استرداد أو رسالة خارجية.",
+                )}
+              </p>
+              <Field label={L("Reservation status filter", "تصفية حالة الحجز")}>
+                <Select
+                  aria-label={L(
+                    "Reservation status filter",
+                    "تصفية حالة الحجز",
+                  )}
+                  value={reservationStatus}
+                  onChange={(e) => {
+                    rowRequest.current++;
+                    setRows([]);
+                    setLoanTotal(0);
+                    setError("");
+                    setLoadingRows(true);
+                    setReservationStatus(e.target.value);
+                    setReservationPage(1);
+                  }}
+                >
+                  {[
+                    ["", L("All reservations", "كل الحجوزات")],
+                    ["waiting", L("Waiting", "منتظر")],
+                    ["fulfilled", L("Fulfilled", "تم التنفيذ")],
+                    ["cancelled", L("Cancelled", "ملغي")],
+                  ].map(([v, label]) => (
+                    <option key={v} value={v}>
+                      {label}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              {loadingRows ? (
+                <p role="status">
+                  {L("Loading reservations…", "تحميل الحجوزات…")}
+                </p>
+              ) : (
+                !error && (
+                  <p role="status" className="text-xs text-slate-500">
+                    {L("Matching reservations", "الحجوزات المطابقة")}:{" "}
+                    {loanTotal} · {L("Page", "صفحة")} {reservationPage} /{" "}
+                    {Math.max(1, Math.ceil(loanTotal / 20))}
+                  </p>
+                )
+              )}
+              <div className="flex flex-wrap gap-3">
+                <Button
+                  disabled={loadingRows || reservationPage === 1}
+                  onClick={() => {
+                    rowRequest.current++;
+                    setRows([]);
+                    setLoanTotal(0);
+                    setReservationPage((v) => v - 1);
+                  }}
+                >
+                  {L("Previous reservations", "الحجوزات السابقة")}
+                </Button>
+                <Button
+                  disabled={loadingRows || reservationPage * 20 >= loanTotal}
+                  onClick={() => {
+                    rowRequest.current++;
+                    setRows([]);
+                    setLoanTotal(0);
+                    setReservationPage((v) => v + 1);
+                  }}
+                >
+                  {L("Next reservations", "الحجوزات التالية")}
                 </Button>
               </div>
             </section>
