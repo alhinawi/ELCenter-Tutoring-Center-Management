@@ -127,11 +127,27 @@ test("family library pages persisted loans, returned penalties and Arabic mobile
     exact: true,
   });
   await expect(arabic).toContainText("تم الإرجاع");
-  expect(
-    await family.evaluate(
-      () => document.documentElement.scrollWidth <= innerWidth,
-    ),
-  ).toBeTruthy();
+  await family.evaluate(() => document.fonts.ready);
+  for (const width of [390, 389, 375, 360, 320, 391]) {
+    await family.setViewportSize({ width, height: 844 });
+    expect(
+      await family.evaluate(() => document.documentElement.scrollWidth),
+      `Arabic document at${width}px`,
+    ).toBeLessThanOrEqual(width);
+    const header = family.getByRole("banner");
+    await expect(
+      header.getByRole("button", { name: "Sign out", exact: true }),
+    ).toHaveCount(0);
+    await expect(
+      header.getByRole("button", { name: "تسجيل الخروج", exact: true }),
+    ).toBeInViewport();
+  }
+  await family.setViewportSize({ width: 390, height: 844 });
+  await family.screenshot({
+    path: "/downloads/elcenter-family-library-rtl-fixed.png",
+    fullPage: true,
+    animations: "disabled",
+  });
   await arabic.screenshot({
     path: "/downloads/elcenter-family-library-ar-mobile.png",
     animations: "disabled",
