@@ -183,6 +183,41 @@ export function registerPortals(app: Hono<any>) {
   app.get("/api/portal/students/:id/invoices", familyInvoices);
   app.get("/api/portal/students/:id/attendance", familyAttendance);
   app.get("/api/portal/students/:id/results", familyResults);
+  app.get("/api/portal/groups/:student", async (c: AppContext) => {
+    const a = c.get("actor"),
+      s = await ownedStudent(c, c.req.param("student")!),
+      page = z.coerce
+        .number()
+        .int()
+        .min(1)
+        .max(10000)
+        .parse(c.req.query("page") ?? 1),
+      status = z
+        .enum(["", "active", "completed"])
+        .parse(c.req.query("status") ?? ""),
+      where =
+        "en.org_id=? AND en.student_id=? AND en.status IN ('active','completed') AND (?='' OR en.status=?)",
+      args = [a.org_id, s.id, status, status];
+    const count = await c.env.DB.prepare(
+        "SELECT count(*) total FROM el_enrollments en JOIN el_groups g ON g.id=en.group_id AND g.org_id=en.org_id JOIN el_teachers t ON t.id=g.teacher_id AND t.org_id=g.org_id JOIN el_courses co ON co.id=g.course_id AND co.org_id=g.org_id WHERE " +
+          where,
+      )
+        .bind(...args)
+        .first<{ total: number }>(),
+      rows = await c.env.DB.prepare(
+        "SELECT g.id,g.name,g.code,g.status,t.name teacher_name,co.name course_name,en.status enrollment_status FROM el_enrollments en JOIN el_groups g ON g.id=en.group_id AND g.org_id=en.org_id JOIN el_teachers t ON t.id=g.teacher_id AND t.org_id=g.org_id JOIN el_courses co ON co.id=g.course_id AND co.org_id=g.org_id WHERE " +
+          where +
+          " ORDER BY g.name,g.id LIMIT 20 OFFSET ?",
+      )
+        .bind(...args, (page - 1) * 20)
+        .all();
+    return c.json({
+      data: rows.results,
+      total: count?.total ?? 0,
+      page,
+      page_size: 20,
+    });
+  });
   app.get("/api/portal/students/:id", async (c: AppContext) => {
     const student = await ownedStudent(c, c.req.param("id")!),
       a = c.get("actor"),
