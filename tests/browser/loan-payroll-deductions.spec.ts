@@ -151,4 +151,30 @@ test("employee payroll form deducts a disbursed loan and the reserved balance pe
     .getByRole("button", { name: "Employee loans", exact: true })
     .click();
   await expect(page.getByText(/Payroll deducted/)).toBeVisible();
+  await page
+    .getByRole("button", { name: "People & admissions", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Employee payroll", exact: true })
+    .click();
+  await page.getByRole("button", { name: "Cancel draft", exact: true }).click();
+  await page
+    .getByRole("textbox", { name: "Cancellation reason", exact: true })
+    .fill("Fictional wrong amount");
+  await page.getByRole("button", { name: "Save changes", exact: true }).click();
+  await expect(
+    page.getByText("Cancelled draft", { exact: false }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Approve & accrue", exact: true }),
+  ).toHaveCount(0);
+  await page.screenshot({
+    path: "/downloads/elcenter-loan-payroll-cancelled.png",
+    fullPage: true,
+    animations: "disabled",
+  });
+  await expect(
+    page.getByRole("button", { name: "Print payslip", exact: true }),
+  ).toHaveCount(0);
+  expect((await api("/employee-loans/" + loan)).data.deducted).toBe(0);
 });
