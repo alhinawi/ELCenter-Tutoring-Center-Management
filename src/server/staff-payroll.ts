@@ -1,9 +1,9 @@
 import type { Hono } from "hono";
 import { z } from "zod";
 import { Temporal } from "@js-temporal/polyfill";
-import { uid } from "./db";
+import { uid, now } from "./db";
 import { assert } from "./security";
-import { permit, audit, type AppContext } from "./app";
+import { permit, scope, audit, type AppContext } from "./app";
 import { date, accounts, journal } from "./finance";
 import { operationRecord } from "./operations";
 async function row(c: AppContext, id: string) {
@@ -25,7 +25,18 @@ export function registerStaffPayroll(app: Hono<any>) {
   app.get("/api/staff-payroll/options", async (c: AppContext) => {
     permit(c, "payroll");
     const a = c.get("actor");
+    const mayLoan = c.get("actor").permissions?.includes?.("finance:view");
+    const loans = mayLoan
+      ? (
+          await c.env.DB.prepare(
+            "SELECT l.id,l.employee_id,l.branch_id,l.principal-COALESCE((SELECT sum(amount) FROM el_employee_loan_recoveries r WHERE r.loan_id=l.id),0)-COALESCE((SELECT sum(amount) FROM el_employee_loan_deductions q WHERE q.loan_id=l.id),0) outstanding,l.kind,e.name||' · '||l.kind||' · '||(l.principal-COALESCE((SELECT sum(amount) FROM el_employee_loan_recoveries r WHERE r.loan_id=l.id),0)-COALESCE((SELECT sum(amount) FROM el_employee_loan_deductions q WHERE q.loan_id=l.id),0)) name FROM el_employee_loans l JOIN el_employees e ON e.org_id=l.org_id AND e.id=l.employee_id WHERE l.org_id=? AND (? IS NULL OR l.branch_id=?) AND l.status='disbursed' AND l.principal>COALESCE((SELECT sum(amount) FROM el_employee_loan_recoveries r WHERE r.loan_id=l.id),0)+COALESCE((SELECT sum(amount) FROM el_employee_loan_deductions q WHERE q.loan_id=l.id),0) ORDER BY l.created_at,l.id LIMIT 500",
+          )
+            .bind(a.org_id, a.branch_id, a.branch_id)
+            .all()
+        ).results
+      : [];
     return c.json({
+      loans,
       employees: (
         await c.env.DB.prepare(
           "SELECT id,name,branch_id FROM el_employees WHERE org_id=? AND (? IS NULL OR branch_id=?) AND status IN ('active','onboarding','on_leave') ORDER BY name LIMIT 500",
@@ -57,8 +68,29 @@ export function registerStaffPayroll(app: Hono<any>) {
         bonus: z.number().int().min(0).max(100000000).default(0),
         deduction: z.number().int().min(0).max(100000000).default(0),
         reason: z.string().trim().max(500).default(""),
+        loan_deductions: z
+          .array(
+            z
+              .object({
+                loan_id: z.uuid(),
+                amount: z.number().int().min(1).max(1000000000),
+              })
+              .strict(),
+          )
+          .max(5)
+          .default([]),
       })
       .parse(await c.req.json());
+    assert(
+      new Set(d.loan_deductions.map((x) => x.loan_id)).size ===
+        d.loan_deductions.length,
+      400,
+      "Each loan can be deducted once per payroll",
+    );
+    if (d.loan_deductions.length) {
+      permit(c, "finance");
+      permit(c, "finance", "create");
+    }
     assert(
       !(d.bonus || d.deduction) || d.reason,
       400,
@@ -138,6 +170,7 @@ export function registerStaffPayroll(app: Hono<any>) {
       409,
       `Attendance is incomplete for ${missing} scheduled day(s); record attendance or approved leave first`,
     );
+    const loanTotal = d.loan_deductions.reduce((n, x) => n + x.amount, 0);
     const absence_deduction = Math.round(
         (contract.salary * (absent + unpaid)) / scheduled,
       ),
@@ -147,7 +180,34 @@ export function registerStaffPayroll(app: Hono<any>) {
         absence_deduction +
         overtime_pay +
         d.bonus -
-        d.deduction;
+        d.deduction -
+        loanTotal;
+    assert(
+      !d.loan_deductions.length || total > 0,
+      409,
+      "Loan deductions must leave a positive net payroll",
+    );
+    for (const x of d.loan_deductions) {
+      const l = await c.env.DB.prepare(
+        "SELECT id,branch_id,employee_id,status,principal,COALESCE((SELECT sum(amount) FROM el_employee_loan_recoveries r WHERE r.loan_id=l.id),0)+COALESCE((SELECT sum(amount) FROM el_employee_loan_deductions q WHERE q.loan_id=l.id),0) settled FROM el_employee_loans l WHERE org_id=? AND id=?",
+      )
+        .bind(employee.org_id, x.loan_id)
+        .first<Record<string, any>>();
+      assert(l, 404, "Employee loan not found");
+      scope(c, l.branch_id);
+      assert(
+        l.employee_id === employee.id &&
+          l.branch_id === employee.branch_id &&
+          l.status === "disbursed",
+        409,
+        "Choose a disbursed loan belonging to this employee",
+      );
+      assert(
+        x.amount <= l.principal - l.settled,
+        409,
+        "Loan deduction exceeds the outstanding balance",
+      );
+    }
     assert(
       Number.isSafeInteger(total) && total >= 0 && total <= 1000000000,
       400,
@@ -169,6 +229,8 @@ export function registerStaffPayroll(app: Hono<any>) {
         overtime_pay,
         bonus: d.bonus,
         deduction: d.deduction,
+        loan_deductions: d.loan_deductions,
+        loan_deduction_total: loanTotal,
         reason: d.reason,
         rounding: "nearest whole currency unit",
         attendance_ids: attendance.map((x) => x.id),
@@ -188,6 +250,19 @@ export function registerStaffPayroll(app: Hono<any>) {
         JSON.stringify(calculation),
         total,
         c.get("actor").user_id,
+      ),
+      ...d.loan_deductions.map((x) =>
+        c.env.DB.prepare(
+          "INSERT INTO el_employee_loan_deductions(id,org_id,loan_id,payroll_id,amount,created_by,created_at) VALUES(?,?,?,?,?,?,?)",
+        ).bind(
+          uid(),
+          employee.org_id,
+          x.loan_id,
+          id,
+          x.amount,
+          c.get("actor").user_id,
+          now(),
+        ),
       ),
       audit(c, "staff_payroll", id, "calculate", null, {
         ...d,
@@ -242,6 +317,33 @@ export function registerStaffPayroll(app: Hono<any>) {
       if (action === "pay")
         assert(p.total > 0, 409, "Zero payroll must close without payment");
       const ac = p.total ? await accounts(c) : null;
+      const deductions =
+        action === "approve"
+          ? (
+              await c.env.DB.prepare(
+                "SELECT d.id,d.amount,l.receivable_account_id FROM el_employee_loan_deductions d JOIN el_employee_loans l ON l.org_id=d.org_id AND l.id=d.loan_id WHERE d.org_id=? AND d.payroll_id=? ORDER BY d.id",
+              )
+                .bind(p.org_id, p.id)
+                .all<{
+                  id: string;
+                  amount: number;
+                  receivable_account_id: string;
+                }>()
+            ).results
+          : [];
+      const loanTotal = deductions.reduce((n, x) => n + x.amount, 0);
+      if (deductions.length) {
+        const late = await c.env.DB.prepare(
+          "SELECT 1 x FROM el_employee_loan_deductions d JOIN el_employee_loans l ON l.org_id=d.org_id AND l.id=d.loan_id WHERE d.org_id=? AND d.payroll_id=? AND l.disbursed_on>?",
+        )
+          .bind(p.org_id, p.id, d.date)
+          .first();
+        assert(
+          !late,
+          400,
+          "Approval date cannot precede a deducted loan disbursement",
+        );
+      }
       const j = p.total
         ? await journal(c, {
             branch: p.branch_id,
@@ -257,8 +359,17 @@ export function registerStaffPayroll(app: Hono<any>) {
             lines:
               action === "approve"
                 ? [
-                    { account: ac!.payroll_expense, debit: p.total, credit: 0 },
+                    {
+                      account: ac!.payroll_expense,
+                      debit: p.total + loanTotal,
+                      credit: 0,
+                    },
                     { account: ac!.payroll_payable, debit: 0, credit: p.total },
+                    ...deductions.map((x) => ({
+                      account: x.receivable_account_id,
+                      debit: 0,
+                      credit: x.amount,
+                    })),
                   ]
                 : [
                     { account: ac!.payroll_payable, debit: p.total, credit: 0 },
@@ -280,6 +391,13 @@ export function registerStaffPayroll(app: Hono<any>) {
           j?.id ?? null,
           p.id,
         ),
+        ...(j
+          ? deductions.map((x) =>
+              c.env.DB.prepare(
+                "UPDATE el_employee_loan_deductions SET applied_journal_id=? WHERE id=? AND org_id=?",
+              ).bind(j.id, x.id, p.org_id),
+            )
+          : []),
         audit(c, "staff_payroll", p.id, action, p, d),
       ]);
       return c.json({ ok: true });

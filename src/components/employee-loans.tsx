@@ -290,6 +290,13 @@ export function EmployeeLoans({
               <p className="mt-2 text-xs" dir="ltr">
                 {money(p.principal, p.currency)} · {L("Recovered", "مسترد")}{" "}
                 {money(p.recovered, p.currency)}
+                {p.deducted > 0 && (
+                  <>
+                    {" · "}
+                    {L("Payroll deducted", "مخصوم من المرتب")}{" "}
+                    {money(p.deducted, p.currency)}
+                  </>
+                )}
               </p>
               <p className="mt-2 text-xs">
                 {L("Due", "الاستحقاق")}: <bdi dir="ltr">{p.due_on}</bdi>
@@ -327,7 +334,9 @@ export function EmployeeLoans({
             <bdi dir="ltr">
               {money(
                 detail.data.status === "disbursed"
-                  ? detail.data.principal - detail.data.recovered
+                  ? detail.data.principal -
+                      detail.data.recovered -
+                      detail.data.deducted
                   : 0,
                 detail.data.currency,
               )}
@@ -367,7 +376,8 @@ export function EmployeeLoans({
               )}
             {allowed("finance", "create") &&
               detail.data.status === "disbursed" &&
-              detail.data.recovered < detail.data.principal && (
+              detail.data.recovered + detail.data.deducted <
+                detail.data.principal && (
                 <Button disabled={busy} onClick={() => setAction("recovery")}>
                   {L("Record recovery", "تسجيل استرداد")}
                 </Button>
@@ -414,7 +424,11 @@ export function EmployeeLoans({
                           name="amount"
                           type="number"
                           min={1}
-                          max={detail.data.principal - detail.data.recovered}
+                          max={
+                            detail.data.principal -
+                            detail.data.recovered -
+                            detail.data.deducted
+                          }
                           step={1}
                           required
                         />

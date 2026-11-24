@@ -99,6 +99,21 @@ const fields: Record<string, FieldDef[]> = {
     field("bonus", "Bonus", "مكافأة", "number", true),
     field("deduction", "Additional deduction", "خصم إضافي", "number", true),
     field("reason", "Adjustment reason", "سبب التعديل"),
+    field(
+      "loan_id",
+      "Loan or advance to deduct (optional)",
+      "سلفة أو قرض للخصم (اختياري)",
+      "select",
+      false,
+      undefined,
+      "loans",
+    ),
+    field(
+      "loan_amount",
+      "Loan deduction amount",
+      "مبلغ الخصم من السلفة",
+      "number",
+    ),
   ],
   "staff-approve": [date],
   "staff-pay": [
@@ -443,7 +458,13 @@ export default function Operations({
   useEffect(() => {
     if (allowed("payroll"))
       api("/staff-payroll/options")
-        .then((x) => setOptions((o) => ({ ...o, employees: x.employees })))
+        .then((x) =>
+          setOptions((o) => ({
+            ...o,
+            employees: x.employees,
+            loans: x.loans ?? [],
+          })),
+        )
         .catch((e) => setError(e.message));
   }, [version]);
   useEffect(() => {
@@ -1096,7 +1117,14 @@ export default function Operations({
                       method = "PUT";
                     }
                     if (table === "announcements") path = "/announcements";
-                    if (table === "staff_payroll") path = "/staff-payroll";
+                    if (table === "staff_payroll") {
+                      path = "/staff-payroll";
+                      d.loan_deductions = d.loan_id
+                        ? [{ loan_id: d.loan_id, amount: d.loan_amount }]
+                        : [];
+                      delete d.loan_id;
+                      delete d.loan_amount;
+                    }
                     if (table === "staff-approve" || table === "staff-pay")
                       path = `/staff-payroll/${form.row?.id}/${table === "staff-approve" ? "approve" : "pay"}`;
                     if (table === "convert")
