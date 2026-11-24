@@ -116,6 +116,9 @@ const fields: Record<string, FieldDef[]> = {
     ),
   ],
   "staff-approve": [date],
+  "staff-cancel": [
+    field("reason", "Cancellation reason", "سبب الإلغاء", "text", true),
+  ],
   "staff-pay": [
     date,
     field("method", "Method", "الطريقة", "select", true, ["cash", "bank"]),
@@ -670,9 +673,11 @@ export default function Operations({
                     </h2>
                   </div>
                   <span className="shrink-0 rounded-full bg-slate-100 px-2 py-1 text-[10px] text-slate-500 dark:bg-slate-800">
-                    {r.zero_closed_on
-                      ? L("Closed / no payment", "مغلق / بدون صرف")
-                      : r.stage || r.status || r.type || r.channel || ""}
+                    {r.cancellation_id
+                      ? L("Cancelled", "ملغي")
+                      : r.zero_closed_on
+                        ? L("Closed / no payment", "مغلق / بدون صرف")
+                        : r.stage || r.status || r.type || r.channel || ""}
                   </span>
                 </div>
                 {r.purpose && (
@@ -764,8 +769,32 @@ export default function Operations({
                   </p>
                 )}
                 <div className="mt-4 flex flex-wrap gap-3">
+                  {section === "staff_payroll" && r.cancellation_id && (
+                    <p className="w-full whitespace-pre-wrap break-words text-sm text-amber-700 dark:text-amber-300">
+                      {L("Cancelled draft", "مسودة ملغاة")} ·{" "}
+                      {r.cancellation_reason}
+                      <br />
+                      {L(
+                        "Reserved loan deductions were released. Prepare a new payroll for this month if needed.",
+                        "الخصومات المحجوزة من السلف اتحررت. جهّز مرتب جديد للشهر لو محتاج.",
+                      )}
+                    </p>
+                  )}
                   {section === "staff_payroll" &&
                     r.status === "draft" &&
+                    !r.cancellation_id &&
+                    allowed("payroll", "create") && (
+                      <Button
+                        onClick={() =>
+                          setForm({ table: "staff-cancel", row: r })
+                        }
+                      >
+                        {L("Cancel draft", "إلغاء المسودة")}
+                      </Button>
+                    )}
+                  {section === "staff_payroll" &&
+                    r.status === "draft" &&
+                    !r.cancellation_id &&
                     allowed("payroll", "approve") && (
                       <Button
                         onClick={() =>
@@ -1125,8 +1154,12 @@ export default function Operations({
                       delete d.loan_id;
                       delete d.loan_amount;
                     }
-                    if (table === "staff-approve" || table === "staff-pay")
-                      path = `/staff-payroll/${form.row?.id}/${table === "staff-approve" ? "approve" : "pay"}`;
+                    if (
+                      table === "staff-approve" ||
+                      table === "staff-pay" ||
+                      table === "staff-cancel"
+                    )
+                      path = `/staff-payroll/${form.row?.id}/${table === "staff-approve" ? "approve" : table === "staff-cancel" ? "cancel" : "pay"}`;
                     if (table === "convert")
                       path = `/operations/leads/${form.row?.id}/convert`;
                     if (table === "hire")
