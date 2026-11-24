@@ -203,6 +203,25 @@ test("teacher group pages list every assigned group once with scope isolation", 
       403,
     );
   });
+  await t.test(
+    "home totals count everything, not a capped preview",
+    async () => {
+      for (let i = 0; i < 70; i++) copyGroup(1000 + i);
+      const total = (
+        raw
+          .prepare(
+            "SELECT count(*) n FROM el_groups WHERE org_id=? AND teacher_id=?",
+          )
+          .get(org, group.teacher_id) as any
+      ).n;
+      assert(total > 100);
+      const home = (await call("/portal/teacher", "GET", undefined, teacher)).j;
+      assert.equal(home.totals.groups, total);
+      assert.equal(typeof home.totals.sessions, "number");
+      assert.equal(typeof home.totals.exams, "number");
+      assert.equal(home.groups, undefined);
+    },
+  );
   void guardianAccount;
   void studentAccount;
 });
