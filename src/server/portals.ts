@@ -376,34 +376,26 @@ export function registerPortals(app: Hono<any>) {
     const a = c.get("actor"),
       link = await identity(c);
     assert(link.kind === "teacher", 403, "Teacher profile required");
-    const groups = (
-      await c.env.DB.prepare(
-        "SELECT g.id,g.name,g.code,g.status,co.name course_name,b.name branch_name,(SELECT count(*) FROM el_enrollments en WHERE en.group_id=g.id AND en.status='active') students FROM el_groups g JOIN el_courses co ON co.id=g.course_id JOIN el_branches b ON b.id=g.branch_id WHERE g.org_id=? AND g.teacher_id=? AND (? IS NULL OR g.branch_id=?) ORDER BY g.name LIMIT 100",
+    const totals = await c.env.DB.prepare(
+      "SELECT (SELECT count(*) FROM el_groups g WHERE g.org_id=? AND g.teacher_id=? AND (? IS NULL OR g.branch_id=?)) groups,(SELECT count(*) FROM el_class_sessions s WHERE s.org_id=? AND s.teacher_id=? AND s.starts_at>=? AND s.starts_at<=? AND (? IS NULL OR s.branch_id=?)) sessions,(SELECT count(*) FROM el_exams e JOIN el_groups g ON g.id=e.group_id AND g.org_id=e.org_id WHERE e.org_id=? AND g.teacher_id=? AND (? IS NULL OR g.branch_id=?)) exams",
+    )
+      .bind(
+        a.org_id,
+        link.teacher_id,
+        a.branch_id,
+        a.branch_id,
+        a.org_id,
+        link.teacher_id,
+        now() - 7 * 86400,
+        now() + 90 * 86400,
+        a.branch_id,
+        a.branch_id,
+        a.org_id,
+        link.teacher_id,
+        a.branch_id,
+        a.branch_id,
       )
-        .bind(a.org_id, link.teacher_id, a.branch_id, a.branch_id)
-        .all()
-    ).results;
-    const sessions = (
-      await c.env.DB.prepare(
-        "SELECT s.id,s.starts_at,s.ends_at,s.topic,s.status,g.name group_name,cl.name classroom_name FROM el_class_sessions s JOIN el_groups g ON g.id=s.group_id JOIN el_classrooms cl ON cl.id=s.classroom_id WHERE s.org_id=? AND s.teacher_id=? AND s.starts_at>=? AND s.starts_at<=? AND (? IS NULL OR s.branch_id=?) ORDER BY s.starts_at LIMIT 100",
-      )
-        .bind(
-          a.org_id,
-          link.teacher_id,
-          now() - 7 * 86400,
-          now() + 90 * 86400,
-          a.branch_id,
-          a.branch_id,
-        )
-        .all()
-    ).results;
-    const exams = (
-      await c.env.DB.prepare(
-        "SELECT e.*,g.name group_name FROM el_exams e JOIN el_groups g ON g.id=e.group_id WHERE e.org_id=? AND g.teacher_id=? AND (? IS NULL OR g.branch_id=?) ORDER BY e.scheduled_at DESC LIMIT 100",
-      )
-        .bind(a.org_id, link.teacher_id, a.branch_id, a.branch_id)
-        .all()
-    ).results;
+      .first<{ groups: number; sessions: number; exams: number }>();
     const payroll = (
       await c.env.DB.prepare(
         "SELECT p.month,p.base_amount,p.bonus,p.deduction,p.total,CASE WHEN z.id IS NOT NULL THEN 'closed_zero' ELSE p.status END status,p.calculation_json FROM el_payroll p LEFT JOIN el_zero_payroll_closures z ON z.org_id=p.org_id AND z.teacher_payroll_id=p.id WHERE p.org_id=? AND p.teacher_id=? AND p.status<>'draft' AND (? IS NULL OR p.branch_id=?) ORDER BY p.month DESC LIMIT 24",
@@ -427,9 +419,7 @@ export function registerPortals(app: Hono<any>) {
       : [];
     return c.json({
       profile: link.profile,
-      groups,
-      sessions,
-      exams,
+      totals,
       payroll,
       leaves,
       can_request_leave: !!employee,

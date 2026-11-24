@@ -116,6 +116,16 @@ test("teacher groups page every assigned group, filter status and fit Arabic mob
     .getByLabel("Group status filter", { exact: true })
     .selectOption("active");
   await expect(rows).toHaveCount(20);
+  await expect(
+    family.getByText("Assigned groups", { exact: true }),
+  ).toBeVisible();
+  await family
+    .getByText("Assigned groups", { exact: true })
+    .locator("xpath=../../..")
+    .screenshot({
+      path: "/downloads/elcenter-teacher-totals.png",
+      animations: "disabled",
+    });
   await panel.screenshot({
     path: "/downloads/elcenter-teacher-groups-desktop.png",
     animations: "disabled",

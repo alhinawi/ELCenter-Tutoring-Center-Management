@@ -443,17 +443,17 @@ export function Portal({
                 <div className="grid gap-4 sm:grid-cols-3">
                   {[
                     [
-                      L("Group preview (up to 100)", "معاينة مجموعات (لحد100)"),
-                      home.groups.length,
+                      L("Assigned groups", "المجموعات المسندة"),
+                      home.totals.groups,
                     ],
                     [
-                      L("Session preview (up to 100)", "معاينة حصص (لحد100)"),
-                      home.sessions.length,
+                      L(
+                        "Sessions (last 7 to next 90 days)",
+                        "الحصص (من آخر 7 أيام لحد 90 يوم جاي)",
+                      ),
+                      home.totals.sessions,
                     ],
-                    [
-                      L("Exam preview (up to 100)", "معاينة امتحانات (لحد100)"),
-                      home.exams.length,
-                    ],
+                    [L("Exams", "الامتحانات"), home.totals.exams],
                   ].map(([label, n]) => (
                     <Card className="p-5" key={label}>
                       <p className="text-sm text-slate-500">{label}</p>
