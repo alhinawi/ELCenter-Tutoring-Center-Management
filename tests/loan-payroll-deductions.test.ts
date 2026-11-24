@@ -190,15 +190,93 @@ test("payroll loan deductions reserve balance, accrue atomically and cap recover
       "UPDATE el_employee_loan_deductions SET applied_journal_id='missing'",
     ),
   );
+  // cancelling the draft releases the reservation and frees the month
+  assert.equal(
+    (await call(`/staff-payroll/${id}/cancel`, "POST", { reason: "no" })).r
+      .status,
+    400,
+  );
+  assert.equal(
+    (
+      await call(`/staff-payroll/${id}/cancel`, "POST", {
+        reason: "Wrong loan amount",
+      })
+    ).r.status,
+    200,
+  );
+  assert.equal(
+    (
+      await call(`/staff-payroll/${id}/cancel`, "POST", {
+        reason: "Wrong loan amount",
+      })
+    ).j.replayed,
+    true,
+  );
+  assert.equal(
+    (
+      await call(`/staff-payroll/${id}/cancel`, "POST", {
+        reason: "Different reason",
+      })
+    ).r.status,
+    409,
+  );
+  assert.equal((await call("/employee-loans/" + loan)).j.data.deducted, 0);
+  assert.equal(
+    (await call("/staff-payroll/options")).j.loans[0].outstanding,
+    1000,
+  );
+  assert.equal(
+    (
+      await call(
+        `/staff-payroll/${id}/approve`,
+        "POST",
+        { date: today },
+        approver,
+      )
+    ).r.status,
+    409,
+  );
+  assert.throws(() =>
+    raw
+      .prepare(
+        "UPDATE el_staff_payroll SET status='approved',approved_by=? WHERE id=?",
+      )
+      .run(
+        get("SELECT created_by FROM el_staff_payroll WHERE id=?", id)
+          .created_by + "x",
+        id,
+      ),
+  );
+  assert.throws(() =>
+    raw.exec(
+      "UPDATE el_employee_loan_deductions SET released_at=NULL,released_by=NULL",
+    ),
+  );
+  const cancelled = (await call("/staff-payroll")).j.data.find(
+    (x: any) => x.id === id,
+  );
+  assert.equal(cancelled.month, month);
+  assert(cancelled.cancellation_id);
+  assert.equal(
+    (await call("/employee-loans/" + loan)).j.deductions[0].released_at > 0,
+    true,
+  );
+  const again = await call("/staff-payroll", "POST", {
+    ...base,
+    loan_deductions: [{ loan_id: loan, amount: 400 }],
+  });
+  assert.equal(again.r.status, 201, JSON.stringify(again.j));
+  const id2 = again.j.id;
+  assert.equal((await call("/employee-loans/" + loan)).j.data.deducted, 400);
   const ap = await call(
-    `/staff-payroll/${id}/approve`,
+    `/staff-payroll/${id2}/approve`,
     "POST",
     { date: "2026-02-28" },
     approver,
   );
   assert.equal(ap.r.status, 400, "approval before loan disbursement date");
   const ok = await call(
-    `/staff-payroll/${id}/approve`,
+    `/staff-payroll/${id2}/approve`,
     "POST",
     { date: today > "2026-02-28" ? today : "2026-02-28" },
     approver,
@@ -206,7 +284,7 @@ test("payroll loan deductions reserve balance, accrue atomically and cap recover
   assert.equal(ok.r.status, 200, JSON.stringify(ok.j));
   const row = get(
     "SELECT accrual_journal_id j FROM el_staff_payroll WHERE id=?",
-    id,
+    id2,
   );
   const lines = raw
     .prepare(
@@ -220,14 +298,17 @@ test("payroll loan deductions reserve balance, accrue atomically and cap recover
   assert.equal(Math.max(...lines.map((l) => l.debit)), 3100);
   assert.equal(lines.find((l) => l.account_id === account).credit, 400);
   assert.equal(
-    get("SELECT applied_journal_id j FROM el_employee_loan_deductions").j,
+    get(
+      "SELECT applied_journal_id j FROM el_employee_loan_deductions WHERE payroll_id=?",
+      id2,
+    ).j,
     row.j,
   );
   assert.equal((await rec(600)).r.status, 201);
   assert.equal((await rec(1)).r.status, 400);
   assert.equal((await call("/staff-payroll/options")).j.loans.length, 0);
   const paid = await call(
-    `/staff-payroll/${id}/pay`,
+    `/staff-payroll/${id2}/pay`,
     "POST",
     { date: today, method: "bank" },
     payer,
