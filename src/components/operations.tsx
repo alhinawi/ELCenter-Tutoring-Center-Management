@@ -847,7 +847,7 @@ export default function Operations({
                           : L("Cancel shift", "إلغاء الوردية")}
                       </Button>
                     ))}
-                  {section === "staff_payroll" && (
+                  {section === "staff_payroll" && !r.cancellation_id && (
                     <button
                       className="text-xs text-blue-700 dark:text-blue-300"
                       onClick={(e) =>

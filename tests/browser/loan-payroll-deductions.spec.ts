@@ -173,5 +173,8 @@ test("employee payroll form deducts a disbursed loan and the reserved balance pe
     fullPage: true,
     animations: "disabled",
   });
+  await expect(
+    page.getByRole("button", { name: "Print payslip", exact: true }),
+  ).toHaveCount(0);
   expect((await api("/employee-loans/" + loan)).data.deducted).toBe(0);
 });
