@@ -1,5 +1,6 @@
 "use client";
 import { FamilyLibraryHistory } from "./family-library-history";
+import { FamilyGroups } from "./family-groups";
 import { FamilyRequestHistory } from "./family-request-history";
 import { FamilySchedule } from "./family-schedule";
 import { FamilyInvoiceHistory } from "./family-invoice-history";
@@ -652,6 +653,14 @@ export function Portal({
                     />
                   </Panel>
                 </div>
+                <Panel title={L("Enrolled groups", "المجموعات المسجلة")}>
+                  <FamilyGroups
+                    key={family.student.id}
+                    id={family.student.id}
+                    api={p.api}
+                    ar={ar}
+                  />
+                </Panel>
                 <Panel title={L("Attendance history", "سجل الحضور")}>
                   <FamilyAttendanceHistory
                     key={family.student.id}
