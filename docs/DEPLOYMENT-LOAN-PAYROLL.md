@@ -44,3 +44,11 @@ Status: proposal for the owner and deployer to review. Nothing here has been run
 ## Still open
 
 Independent accountant review of the accrual treatment, legal review of wage deductions, any write-off or correction policy, a restore drill, load and security review. None is decided here.
+
+## Recovery limits and forward-fix runbook (proposal)
+
+- A whole-database D1 restore is not an acceptable rollback: the database is shared and a restore would also roll back other projects' writes. Do not use it for this release.
+- Tested locally (synthetic, nothing remote): journals posted before the upgrade, with their report output, stay byte-identical after 0036 and 0037 (`tests/payroll-migration-upgrade.test.ts`); the previous release's API suite passes on the new schema.
+- If the release must be backed out before any deduction or cancellation row exists: redeploy the previous backend (safe on the new schema), leave the new empty el_ objects in place, and fix forward in a later migration. Dropping them is optional and needs its own reviewed migration, and only while `el_employee_loan_deductions` and `el_staff_payroll_cancellations` are empty.
+- After the first deduction exists, do not roll the backend back. Correct with compensating records only (see PAYROLL-REVERSAL-DESIGN.md).
+- Not verified without production access: database version and plan, and whether an el_-only row export of the 2 existing journals is wanted before any approved apply.
