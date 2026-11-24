@@ -29,7 +29,7 @@ export function registerStaffPayroll(app: Hono<any>) {
     const loans = mayLoan
       ? (
           await c.env.DB.prepare(
-            "SELECT l.id,l.employee_id,l.branch_id,l.principal-COALESCE((SELECT sum(amount) FROM el_employee_loan_recoveries r WHERE r.loan_id=l.id),0)-COALESCE((SELECT sum(amount) FROM el_employee_loan_deductions q WHERE q.loan_id=l.id),0) outstanding,l.kind,e.name||' · '||l.kind||' · '||(l.principal-COALESCE((SELECT sum(amount) FROM el_employee_loan_recoveries r WHERE r.loan_id=l.id),0)-COALESCE((SELECT sum(amount) FROM el_employee_loan_deductions q WHERE q.loan_id=l.id),0)) name FROM el_employee_loans l JOIN el_employees e ON e.org_id=l.org_id AND e.id=l.employee_id WHERE l.org_id=? AND (? IS NULL OR l.branch_id=?) AND l.status='disbursed' AND l.principal>COALESCE((SELECT sum(amount) FROM el_employee_loan_recoveries r WHERE r.loan_id=l.id),0)+COALESCE((SELECT sum(amount) FROM el_employee_loan_deductions q WHERE q.loan_id=l.id),0) ORDER BY l.created_at,l.id LIMIT 500",
+            "SELECT l.id,l.employee_id,l.branch_id,l.principal-COALESCE((SELECT sum(amount) FROM el_employee_loan_recoveries r WHERE r.loan_id=l.id),0)-COALESCE((SELECT sum(amount) FROM el_employee_loan_deductions q WHERE q.loan_id=l.id AND q.released_at IS NULL),0) outstanding,l.kind,e.name||' · '||l.kind||' · '||(l.principal-COALESCE((SELECT sum(amount) FROM el_employee_loan_recoveries r WHERE r.loan_id=l.id),0)-COALESCE((SELECT sum(amount) FROM el_employee_loan_deductions q WHERE q.loan_id=l.id AND q.released_at IS NULL),0)) name FROM el_employee_loans l JOIN el_employees e ON e.org_id=l.org_id AND e.id=l.employee_id WHERE l.org_id=? AND (? IS NULL OR l.branch_id=?) AND l.status='disbursed' AND l.principal>COALESCE((SELECT sum(amount) FROM el_employee_loan_recoveries r WHERE r.loan_id=l.id),0)+COALESCE((SELECT sum(amount) FROM el_employee_loan_deductions q WHERE q.loan_id=l.id AND q.released_at IS NULL),0) ORDER BY l.created_at,l.id LIMIT 500",
           )
             .bind(a.org_id, a.branch_id, a.branch_id)
             .all()
@@ -52,7 +52,7 @@ export function registerStaffPayroll(app: Hono<any>) {
     return c.json({
       data: (
         await c.env.DB.prepare(
-          "SELECT p.*,e.name,z.closed_on zero_closed_on,z.reason zero_closure_reason FROM el_staff_payroll p JOIN el_employees e ON e.id=p.employee_id LEFT JOIN el_zero_payroll_closures z ON z.org_id=p.org_id AND z.staff_payroll_id=p.id WHERE p.org_id=? AND (? IS NULL OR p.branch_id=?) ORDER BY p.month DESC,p.created_at DESC LIMIT 100",
+          "SELECT p.*,COALESCE(k.original_month,p.month) month,k.id cancellation_id,k.reason cancellation_reason,k.cancelled_at,e.name,z.closed_on zero_closed_on,z.reason zero_closure_reason FROM el_staff_payroll p JOIN el_employees e ON e.id=p.employee_id LEFT JOIN el_staff_payroll_cancellations k ON k.org_id=p.org_id AND k.payroll_id=p.id LEFT JOIN el_zero_payroll_closures z ON z.org_id=p.org_id AND z.staff_payroll_id=p.id WHERE p.org_id=? AND (? IS NULL OR p.branch_id=?) ORDER BY p.month DESC,p.created_at DESC LIMIT 100",
         )
           .bind(a.org_id, a.branch_id, a.branch_id)
           .all()
@@ -189,7 +189,7 @@ export function registerStaffPayroll(app: Hono<any>) {
     );
     for (const x of d.loan_deductions) {
       const l = await c.env.DB.prepare(
-        "SELECT id,branch_id,employee_id,status,principal,COALESCE((SELECT sum(amount) FROM el_employee_loan_recoveries r WHERE r.loan_id=l.id),0)+COALESCE((SELECT sum(amount) FROM el_employee_loan_deductions q WHERE q.loan_id=l.id),0) settled FROM el_employee_loans l WHERE org_id=? AND id=?",
+        "SELECT id,branch_id,employee_id,status,principal,COALESCE((SELECT sum(amount) FROM el_employee_loan_recoveries r WHERE r.loan_id=l.id),0)+COALESCE((SELECT sum(amount) FROM el_employee_loan_deductions q WHERE q.loan_id=l.id AND q.released_at IS NULL),0) settled FROM el_employee_loans l WHERE org_id=? AND id=?",
       )
         .bind(employee.org_id, x.loan_id)
         .first<Record<string, any>>();
@@ -272,6 +272,56 @@ export function registerStaffPayroll(app: Hono<any>) {
     ]);
     return c.json({ id, total }, 201);
   });
+  app.post("/api/staff-payroll/:id/cancel", async (c: AppContext) => {
+    permit(c, "payroll", "create");
+    const p = await row(c, c.req.param("id")!),
+      a = c.get("actor"),
+      d = z
+        .object({ reason: z.string().trim().min(5).max(500) })
+        .strict()
+        .parse(await c.req.json());
+    const existing = await c.env.DB.prepare(
+      "SELECT reason FROM el_staff_payroll_cancellations WHERE org_id=? AND payroll_id=?",
+    )
+      .bind(p.org_id, p.id)
+      .first<{ reason: string }>();
+    if (existing) {
+      assert(
+        existing.reason === d.reason,
+        409,
+        "Employee payroll already cancelled with a different reason",
+      );
+      return c.json({ ok: true, replayed: true });
+    }
+    assert(
+      p.status === "draft",
+      409,
+      "Only an unapproved draft employee payroll can be cancelled",
+    );
+    const at = now();
+    await c.env.DB.batch([
+      c.env.DB.prepare(
+        "INSERT INTO el_staff_payroll_cancellations(id,org_id,branch_id,payroll_id,original_month,reason,cancelled_by,cancelled_at) VALUES(?,?,?,?,?,?,?,?)",
+      ).bind(
+        uid(),
+        p.org_id,
+        p.branch_id,
+        p.id,
+        p.month,
+        d.reason,
+        a.user_id,
+        at,
+      ),
+      c.env.DB.prepare(
+        "UPDATE el_employee_loan_deductions SET released_at=?,released_by=? WHERE org_id=? AND payroll_id=? AND applied_journal_id IS NULL AND released_at IS NULL",
+      ).bind(at, a.user_id, p.org_id, p.id),
+      c.env.DB.prepare(
+        "UPDATE el_staff_payroll SET month=? WHERE id=? AND org_id=? AND status='draft'",
+      ).bind(p.month + "~cancelled-" + p.id, p.id, p.org_id),
+      audit(c, "staff_payroll", p.id, "cancel_draft", p, d),
+    ]);
+    return c.json({ ok: true });
+  });
   for (const action of ["approve", "pay"] as const)
     app.post("/api/staff-payroll/:id/" + action, async (c: AppContext) => {
       permit(c, action === "approve" ? "payroll" : "finance", "approve");
@@ -280,6 +330,15 @@ export function registerStaffPayroll(app: Hono<any>) {
         d = z
           .object({ date, method: z.enum(["cash", "bank"]).default("bank") })
           .parse(await c.req.json());
+      assert(
+        !(await c.env.DB.prepare(
+          "SELECT 1 x FROM el_staff_payroll_cancellations WHERE org_id=? AND payroll_id=?",
+        )
+          .bind(p.org_id, p.id)
+          .first()),
+        409,
+        "Cancelled employee payroll cannot be approved or paid",
+      );
       assert(
         p.status === (action === "approve" ? "draft" : "approved"),
         409,
