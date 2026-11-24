@@ -20,7 +20,7 @@ async function today(c: AppContext) {
 }
 async function loan(c: AppContext, id: string) {
   const row = await c.env.DB.prepare(
-    "SELECT p.*,e.name employee_name,COALESCE((SELECT sum(amount) FROM el_employee_loan_recoveries r WHERE r.loan_id=p.id),0) recovered FROM el_employee_loans p JOIN el_employees e ON e.org_id=p.org_id AND e.id=p.employee_id WHERE p.id=? AND p.org_id=?",
+    "SELECT p.*,e.name employee_name,COALESCE((SELECT sum(amount) FROM el_employee_loan_recoveries r WHERE r.loan_id=p.id),0) recovered,COALESCE((SELECT sum(amount) FROM el_employee_loan_deductions q WHERE q.loan_id=p.id),0) deducted FROM el_employee_loans p JOIN el_employees e ON e.org_id=p.org_id AND e.id=p.employee_id WHERE p.id=? AND p.org_id=?",
   )
     .bind(id, c.get("actor").org_id)
     .first<Record<string, any>>();
@@ -65,7 +65,7 @@ export function registerEmployeeLoans(app: Hono<any>) {
         .parse(c.req.query("page") ?? "1");
     const data = (
       await c.env.DB.prepare(
-        "SELECT p.*,e.name employee_name,COALESCE((SELECT sum(amount) FROM el_employee_loan_recoveries r WHERE r.loan_id=p.id),0) recovered FROM el_employee_loans p JOIN el_employees e ON e.id=p.employee_id AND e.org_id=p.org_id WHERE p.org_id=? AND (? IS NULL OR p.branch_id=?) ORDER BY p.created_at DESC,p.id DESC LIMIT 26 OFFSET ?",
+        "SELECT p.*,e.name employee_name,COALESCE((SELECT sum(amount) FROM el_employee_loan_recoveries r WHERE r.loan_id=p.id),0) recovered,COALESCE((SELECT sum(amount) FROM el_employee_loan_deductions q WHERE q.loan_id=p.id),0) deducted FROM el_employee_loans p JOIN el_employees e ON e.id=p.employee_id AND e.org_id=p.org_id WHERE p.org_id=? AND (? IS NULL OR p.branch_id=?) ORDER BY p.created_at DESC,p.id DESC LIMIT 26 OFFSET ?",
       )
         .bind(a.org_id, a.branch_id, a.branch_id, (page - 1) * 25)
         .all()
@@ -91,7 +91,19 @@ export function registerEmployeeLoans(app: Hono<any>) {
       400,
       "Recovery detail exceeds 500 records; use the account ledger for complete history",
     );
-    return c.json({ data: row, recoveries });
+    const deductions = (
+      await c.env.DB.prepare(
+        "SELECT d.id,d.payroll_id,d.amount,d.applied_journal_id,p.month,p.status payroll_status FROM el_employee_loan_deductions d JOIN el_staff_payroll p ON p.org_id=d.org_id AND p.id=d.payroll_id WHERE d.org_id=? AND d.loan_id=? ORDER BY p.month,d.id LIMIT 501",
+      )
+        .bind(row.org_id, row.id)
+        .all()
+    ).results;
+    assert(
+      deductions.length <= 500,
+      400,
+      "Payroll deduction detail exceeds 500 records; use the account ledger for complete history",
+    );
+    return c.json({ data: row, recoveries, deductions });
   });
   app.post("/api/employee-loans", async (c: AppContext) => {
     access(c, "create");
@@ -284,7 +296,7 @@ export function registerEmployeeLoans(app: Hono<any>) {
       "Currency changed; review recovery with finance before recording",
     );
     assert(
-      d.amount <= p.principal - p.recovered &&
+      d.amount <= p.principal - p.recovered - p.deducted &&
         d.date >= p.disbursed_on &&
         d.date <= o.today,
       400,

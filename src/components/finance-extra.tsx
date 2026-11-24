@@ -469,6 +469,14 @@ export function PayrollSnapshot({
         [L("Overtime pay", "أجر الإضافي"), money(value.overtime_pay)],
         [L("Bonus", "مكافأة"), money(value.bonus)],
         [L("Additional deduction", "خصم إضافي"), money(value.deduction)],
+        ...(value.loan_deduction_total
+          ? ([
+              [
+                L("Loan / advance deduction", "خصم السلف والقروض"),
+                money(value.loan_deduction_total),
+              ],
+            ] as [string, unknown][])
+          : []),
       ]
     : [
         [L("Agreement", "الاتفاق"), value.agreement?.type],
