@@ -330,6 +330,48 @@ export function registerPortals(app: Hono<any>) {
     });
   });
   app.get("/api/portal/teacher/schedule", teacherSchedule);
+  app.get("/api/portal/teacher/groups", async (c: AppContext) => {
+    const a = c.get("actor"),
+      link = await identity(c);
+    assert(link.kind === "teacher", 403, "Teacher profile required");
+    const page = z.coerce
+        .number()
+        .int()
+        .min(1)
+        .max(10000)
+        .parse(c.req.query("page") ?? 1),
+      status = z
+        .enum(["", "active", "completed", "inactive"])
+        .parse(c.req.query("status") ?? ""),
+      where =
+        "g.org_id=? AND g.teacher_id=? AND (? IS NULL OR g.branch_id=?) AND (?='' OR g.status=?)",
+      args = [
+        a.org_id,
+        link.teacher_id,
+        a.branch_id,
+        a.branch_id,
+        status,
+        status,
+      ];
+    const count = await c.env.DB.prepare(
+        "SELECT count(*) total FROM el_groups g WHERE " + where,
+      )
+        .bind(...args)
+        .first<{ total: number }>(),
+      rows = await c.env.DB.prepare(
+        "SELECT g.id,g.name,g.code,g.status,co.name course_name,b.name branch_name,(SELECT count(*) FROM el_enrollments en WHERE en.group_id=g.id AND en.org_id=g.org_id AND en.status='active') students FROM el_groups g JOIN el_courses co ON co.id=g.course_id AND co.org_id=g.org_id JOIN el_branches b ON b.id=g.branch_id WHERE " +
+          where +
+          " ORDER BY g.name,g.id LIMIT 20 OFFSET ?",
+      )
+        .bind(...args, (page - 1) * 20)
+        .all();
+    return c.json({
+      data: rows.results,
+      total: count?.total ?? 0,
+      page,
+      page_size: 20,
+    });
+  });
   app.get("/api/portal/teacher", async (c: AppContext) => {
     const a = c.get("actor"),
       link = await identity(c);

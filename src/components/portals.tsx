@@ -1,6 +1,7 @@
 "use client";
 import { FamilyLibraryHistory } from "./family-library-history";
 import { FamilyGroups } from "./family-groups";
+import { TeacherGroups } from "./teacher-groups";
 import { FamilyRequestHistory } from "./family-request-history";
 import { FamilySchedule } from "./family-schedule";
 import { FamilyInvoiceHistory } from "./family-invoice-history";
@@ -460,6 +461,9 @@ export function Portal({
                     </Card>
                   ))}
                 </div>
+                <Panel title={L("Your groups", "مجموعاتك")}>
+                  <TeacherGroups api={p.api} ar={ar} />
+                </Panel>
                 <Panel title={L("Your timetable", "جدولك")}>
                   <FamilySchedule
                     key={home.profile.id}
