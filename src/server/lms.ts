@@ -523,15 +523,30 @@ export function registerLms(app: Hono<any>) {
       return handler(c);
     });
   app.get("/api/lms/groups/:id/roster", async (c: AppContext) => {
-    const g = await groupAccess(c, c.req.param("id")!, true);
+    const g = await groupAccess(c, c.req.param("id")!, true),
+      org = c.get("actor").org_id,
+      page = z.coerce
+        .number()
+        .int()
+        .min(1)
+        .max(10000)
+        .parse(c.req.query("page") ?? 1),
+      total = await c.env.DB.prepare(
+        "SELECT count(*) n FROM el_enrollments en JOIN el_students s ON s.id=en.student_id AND s.org_id=en.org_id WHERE en.org_id=? AND en.group_id=? AND en.status IN ('active','completed')",
+      )
+        .bind(org, g.id)
+        .first<{ n: number }>();
     return c.json({
       data: (
         await c.env.DB.prepare(
-          "SELECT s.id,s.name,s.code,en.status,(SELECT round(avg(r.score*100.0/e.max_score)) FROM el_exam_results r JOIN el_exams e ON e.id=r.exam_id WHERE r.student_id=s.id AND e.group_id=en.group_id AND r.status='final') average_percent,(SELECT round(100.0*sum(CASE WHEN at.status IN ('present','late','left_early') THEN 1 ELSE 0 END)/nullif(count(*),0)) FROM el_attendance at JOIN el_class_sessions se ON se.id=at.session_id WHERE at.student_id=s.id AND se.group_id=en.group_id AND se.status<>'cancelled') attendance_percent FROM el_enrollments en JOIN el_students s ON s.id=en.student_id WHERE en.org_id=? AND en.group_id=? AND en.status IN ('active','completed') ORDER BY s.name LIMIT 500",
+          "SELECT s.id,s.name,s.code,en.status,(SELECT round(avg(r.score*100.0/e.max_score)) FROM el_exam_results r JOIN el_exams e ON e.id=r.exam_id WHERE r.student_id=s.id AND e.group_id=en.group_id AND r.status='final') average_percent,(SELECT round(100.0*sum(CASE WHEN at.status IN ('present','late','left_early') THEN 1 ELSE 0 END)/nullif(count(*),0)) FROM el_attendance at JOIN el_class_sessions se ON se.id=at.session_id WHERE at.student_id=s.id AND se.group_id=en.group_id AND se.status<>'cancelled') attendance_percent FROM el_enrollments en JOIN el_students s ON s.id=en.student_id AND s.org_id=en.org_id WHERE en.org_id=? AND en.group_id=? AND en.status IN ('active','completed') ORDER BY s.name,s.id LIMIT 50 OFFSET ?",
         )
-          .bind(c.get("actor").org_id, g.id)
+          .bind(org, g.id, (page - 1) * 50)
           .all()
       ).results,
+      total: total?.n ?? 0,
+      page,
+      page_size: 50,
     });
   });
   app.post("/api/lms/exams/:id/results", async (c: AppContext) => {
