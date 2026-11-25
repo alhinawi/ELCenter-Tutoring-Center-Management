@@ -127,5 +127,72 @@ test("teacher class roster pages every student", async ({ page, browser }) => {
     path: "/downloads/elcenter-roster-page2.png",
     animations: "disabled",
   });
+  await dialog.getByRole("button", { name: "Close", exact: true }).click();
+  await family.getByRole("button", { name: "العربية", exact: true }).click();
+  await family.evaluate(() => document.fonts.ready);
+  await family.setViewportSize({ width: 390, height: 844 });
+  await family
+    .getByRole("button", { name: "مساحة التعلم", exact: true })
+    .click();
+  const open = family.getByRole("button", {
+    name: "فتح المجموعة",
+    exact: true,
+  });
+  if (await open.isVisible()) await open.click();
+  await family
+    .getByRole("button", { name: "قائمة الطلاب", exact: true })
+    .click();
+  const ar = family.getByRole("dialog");
+  await expect(ar).toContainText("الطلاب: 55");
+  await expect(ar.getByText("نشط").first()).toBeVisible();
+  await expect(ar).not.toContainText("active");
+  await expect(
+    ar.getByRole("region", { name: "مرر جانبيا لعرض كل الأعمدة" }),
+  ).toBeVisible();
+  await ar
+    .getByRole("button", { name: "الطلاب التاليون", exact: true })
+    .click();
+  await expect(ar).toContainText("صفحة 2 / 2");
+  for (const width of [390, 360, 320]) {
+    await family.setViewportSize({ width, height: 844 });
+    expect(
+      await family.evaluate(() => document.documentElement.scrollWidth),
+      "document " + width,
+    ).toBeLessThanOrEqual(width);
+    await ar.evaluate((e) => (e.scrollTop = e.scrollHeight));
+    const box = async (l: any) => (await l.boundingBox())!;
+    const status = await box(ar.getByRole("status")),
+      prev = await box(
+        ar.getByRole("button", { name: "الطلاب السابقون", exact: true }),
+      ),
+      next = await box(
+        ar.getByRole("button", { name: "الطلاب التاليون", exact: true }),
+      ),
+      panel = await box(ar);
+    expect(
+      status.y + status.height,
+      "status above buttons " + width,
+    ).toBeLessThanOrEqual(prev.y + 1);
+    for (const b of [prev, next, status]) {
+      expect(b.x, "inside left " + width).toBeGreaterThanOrEqual(panel.x);
+      expect(b.x + b.width, "inside right " + width).toBeLessThanOrEqual(
+        panel.x + panel.width + 1,
+      );
+    }
+    const apart =
+      prev.y + prev.height <= next.y ||
+      next.y + next.height <= prev.y ||
+      prev.x + prev.width <= next.x + 1 ||
+      next.x + next.width <= prev.x + 1;
+    expect(apart, "buttons do not overlap " + width).toBe(true);
+    expect(next.y + next.height, "next reachable " + width).toBeLessThanOrEqual(
+      844,
+    );
+    expect(prev.y, "prev reachable " + width).toBeGreaterThanOrEqual(0);
+    await family.screenshot({
+      path: `/downloads/elcenter-roster-ar-${width}.png`,
+      animations: "disabled",
+    });
+  }
   await context.close();
 });

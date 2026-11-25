@@ -111,12 +111,25 @@ function Empty({ children }: { children: ReactNode }) {
 export function Table({
   heads,
   rows,
+  scrollHint,
 }: {
   heads: string[];
   rows: ReactNode[][];
+  scrollHint?: string;
 }) {
   return (
-    <div className="overflow-x-auto">
+    <div
+      className="overflow-x-auto"
+      {...(scrollHint
+        ? { tabIndex: 0, role: "region", "aria-label": scrollHint }
+        : {})}
+    >
+      {scrollHint && (
+        <p className="px-4 pb-2 text-xs text-slate-500 sm:hidden">
+          {"↔ "}
+          {scrollHint}
+        </p>
+      )}
       <table className="w-full text-start text-sm">
         <thead className="bg-slate-50 text-xs text-slate-500 dark:bg-slate-950">
           <tr>
@@ -1784,28 +1797,41 @@ export function LearningSpace(p: Props & { studentId?: string }) {
               L("Exam average", "متوسط الامتحانات"),
               L("Attendance", "الحضور"),
             ]}
+            scrollHint={L(
+              "Scroll sideways to see all columns",
+              "مرر جانبيا لعرض كل الأعمدة",
+            )}
             rows={roster.data.map((r: Row) => [
               r.name,
               r.code,
-              r.status,
+              <Badge key="s" value={r.status} ar={ar} />,
               r.average_percent == null ? "—" : r.average_percent + "%",
               r.attendance_percent == null ? "—" : r.attendance_percent + "%",
             ])}
           />
-          <div className="mt-4 flex items-center justify-between gap-3 text-sm">
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm">
+            <p
+              role="status"
+              className="order-first w-full text-center text-slate-600 dark:text-slate-300"
+            >
+              <span className="whitespace-nowrap">
+                {L("Students", "الطلاب")}: <bdi>{roster.total}</bdi>
+              </span>
+              <span aria-hidden="true"> | </span>
+              <span className="whitespace-nowrap">
+                {L("Page", "صفحة")} <bdi>{roster.page}</bdi> /{" "}
+                <bdi>{Math.max(1, Math.ceil(roster.total / 50))}</bdi>
+              </span>
+            </p>
             <button
-              className="rounded-xl border px-4 py-2 disabled:opacity-40"
+              className="min-w-[8rem] flex-1 rounded-xl border px-4 py-2 disabled:opacity-40"
               disabled={roster.page === 1}
               onClick={() => void loadRoster(roster.page - 1)}
             >
               {L("Previous students", "الطلاب السابقون")}
             </button>
-            <span role="status">
-              {L("Students", "الطلاب")}: {roster.total} · {L("Page", "صفحة")}{" "}
-              {roster.page} / {Math.max(1, Math.ceil(roster.total / 50))}
-            </span>
             <button
-              className="rounded-xl border px-4 py-2 disabled:opacity-40"
+              className="min-w-[8rem] flex-1 rounded-xl border px-4 py-2 disabled:opacity-40"
               disabled={roster.page * 50 >= roster.total}
               onClick={() => void loadRoster(roster.page + 1)}
             >
