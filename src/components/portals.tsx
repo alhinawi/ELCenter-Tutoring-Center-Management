@@ -1128,7 +1128,7 @@ export function LearningSpace(p: Props & { studentId?: string }) {
     [lesson, setLesson] = useState<Row | null>(null),
     [assignment, setAssignment] = useState<Row | null>(null),
     [quiz, setQuiz] = useState<Row | null>(null),
-    [roster, setRoster] = useState<Row[] | null>(null);
+    [roster, setRoster] = useState<Row | null>(null);
   const date = (n: number) =>
     new Date(n * 1000).toLocaleString(ar ? "ar-EG-u-nu-latn" : "en-GB", {
       timeZone: p.timezone,
@@ -1136,6 +1136,16 @@ export function LearningSpace(p: Props & { studentId?: string }) {
       timeStyle: "short",
     });
   const qp = p.studentId ? "?student_id=" + p.studentId : "";
+  async function loadRoster(page: number) {
+    try {
+      setError("");
+      setRoster(
+        await p.api("/lms/groups/" + selected + "/roster?page=" + page),
+      );
+    } catch (e) {
+      setError(String(e));
+    }
+  }
   async function load(id = selected) {
     try {
       setError("");
@@ -1314,12 +1324,7 @@ export function LearningSpace(p: Props & { studentId?: string }) {
                 />
                 <button
                   className="rounded-xl border border-slate-200 px-4 py-2 text-sm"
-                  onClick={() =>
-                    void p
-                      .api("/lms/groups/" + selected + "/roster")
-                      .then((r) => setRoster(r.data))
-                      .catch((e) => setError(String(e)))
-                  }
+                  onClick={() => void loadRoster(1)}
                 >
                   {L("Class roster", "قائمة الطلاب")}
                 </button>
@@ -1779,7 +1784,7 @@ export function LearningSpace(p: Props & { studentId?: string }) {
               L("Exam average", "متوسط الامتحانات"),
               L("Attendance", "الحضور"),
             ]}
-            rows={roster.map((r) => [
+            rows={roster.data.map((r: Row) => [
               r.name,
               r.code,
               r.status,
@@ -1787,6 +1792,26 @@ export function LearningSpace(p: Props & { studentId?: string }) {
               r.attendance_percent == null ? "—" : r.attendance_percent + "%",
             ])}
           />
+          <div className="mt-4 flex items-center justify-between gap-3 text-sm">
+            <button
+              className="rounded-xl border px-4 py-2 disabled:opacity-40"
+              disabled={roster.page === 1}
+              onClick={() => void loadRoster(roster.page - 1)}
+            >
+              {L("Previous students", "الطلاب السابقون")}
+            </button>
+            <span role="status">
+              {L("Students", "الطلاب")}: {roster.total} · {L("Page", "صفحة")}{" "}
+              {roster.page} / {Math.max(1, Math.ceil(roster.total / 50))}
+            </span>
+            <button
+              className="rounded-xl border px-4 py-2 disabled:opacity-40"
+              disabled={roster.page * 50 >= roster.total}
+              onClick={() => void loadRoster(roster.page + 1)}
+            >
+              {L("Next students", "الطلاب التاليون")}
+            </button>
+          </div>
         </Dialog>
       )}
     </div>
