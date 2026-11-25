@@ -159,6 +159,26 @@ test("teacher class roster pages every student", async ({ page, browser }) => {
       await family.evaluate(() => document.documentElement.scrollWidth),
       "document " + width,
     ).toBeLessThanOrEqual(width);
+    await ar.evaluate((e) => (e.scrollTop = 0));
+    for (const [label, loc] of [
+      ["title", ar.getByRole("heading", { name: "قائمة الطلاب" })],
+      ["close", ar.getByRole("button", { name: "Close", exact: true })],
+      ["hint", ar.getByText("مرر جانبيا لعرض كل الأعمدة")],
+    ] as const) {
+      const b = (await loc.boundingBox())!;
+      expect(b.y, label + " top " + width).toBeGreaterThanOrEqual(0);
+      expect(b.y + b.height, label + " bottom " + width).toBeLessThanOrEqual(
+        844,
+      );
+      expect(b.x, label + " left " + width).toBeGreaterThanOrEqual(0);
+      expect(b.x + b.width, label + " right " + width).toBeLessThanOrEqual(
+        width,
+      );
+    }
+    await family.screenshot({
+      path: `/downloads/elcenter-roster-ar-top-${width}.png`,
+      animations: "disabled",
+    });
     await ar.evaluate((e) => (e.scrollTop = e.scrollHeight));
     const box = async (l: any) => (await l.boundingBox())!;
     const status = await box(ar.getByRole("status")),
